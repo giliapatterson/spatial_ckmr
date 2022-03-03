@@ -1,0 +1,124 @@
+---
+title: "Spatially biased sampling and CKMR"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+### Parent-offspring pairs from SLiM
+
+```{r}
+parents <- read.csv("parents.txt")
+```
+
+### Bravington estimators
+
+Pair $(i, j)$
+
+$K_{ij}$ kinship of the pair
+
+Ages $(y_i, y_j)$
+
+Reproductive output of $j$ at time $i$ $R_i(y_j)$
+
+$\mathbf{z_i} = (t_i, a_i)$ =  (time of sampling, age at sampling)
+
+Age at maturity $\alpha$
+
+$N_{Fy_j}$ number of mature females at time $y_j$ was born
+
+\[
+\mathbb{P}(K_{ij} = MO|z_i, z_j) = \frac{\mathbb{E}[R_i(y_j)|y_i, t_i]}{\mathbb{E}[R_+(y_j)]} = \frac{\mathbb{I}[y_i + \alpha \leq y_j < t_i]}{N_{Fy_j}}
+\]
+
+## Very simple example
+
+Everyone selfs, so everyone is a mother
+
+$N_{Fy_j} = N$
+
+Since $\alpha = 0$ (everyone is immediately mature), and since time of sampling is the same for everyone
+
+\[
+\mathbb{P}(K_{ij} = MO|z_i, z_j) = \frac{\mathbb{I}[y_i < y_j]}{N_{Fy_j}}
+\]
+
+In the SLiM simulation not sure if it should be $y_i \leq y_j$ or $y_i < y_j$.
+
+I left it as strictly less than, this also assigns self pairs probability 0 which is good.
+
+```{r}
+N <- nrow(parents) # True population size
+
+# Get a random sample of individuals
+n <- 200
+ind_sample <- parents %>% slice_sample(n = n)
+
+logpslike <- function(N, ind_sample){
+  # Log pseudo likelihood
+  # All unordered pairs
+  pairs <- ind_sample %>% rename(ind_j = individual, parent_of_j = parent1, age_j = age) %>%
+    mutate(ind_i = ind_j, age_i = age_j) %>%
+    expand(nesting(ind_j, age_j, parent_of_j), nesting(ind_i, age_i)) %>%
+    mutate(PO = ind_i == parent_of_j)
+  # Probability i is the parent of j for each pair (based on age and N)
+  # is 1/N if j is younger than i and 0 otherwise
+  pairs <- pairs %>% mutate(P_PO = (age_j < age_i)/N)
+  # Log likelihood of observed relationship (not PO or PO)
+  pairs <- pairs %>% mutate(loglike = ifelse(PO, log(P_PO), log(1-P_PO)))
+  # Pseudo log likelihood is the sum of all the log likelihoods
+  return(sum(pairs$loglike))
+}
+
+estimate_N <- function(ind_sample){
+  # Maximize log pseudo likelihood
+  Nhat <- optimize(logpslike, c(0, 2000), tol = 0.0001, maximum = TRUE, ind_sample = ind_sample)$maximum
+  return(Nhat)
+}
+
+Nhat <- estimate_N(ind_sample)
+cat("True N:", N, "Nhat:", Nhat)
+```
+
+### Random sampling
+
+```{r}
+sample_fun <- function(parents, n){return(slice_sample(parents, n = n))}
+n_reps <- 10
+n_vals <- seq(10, 300, 50)
+n <- rep(n_vals, each = n_reps)
+Nhat = map_dbl(n, function(x) estimate_N(sample_fun(parents = parents, n = x)))
+random_sampling <- tibble(n = n, Nhat = Nhat)
+```
+
+### Spatial sampling
+
+How to sample in a spatially biased way?
+
+Calculate distance to a point, use $1/distance$ as sampling weight.
+
+```{r}
+parents <- mutate(parents, sampling_weights = 1/sqrt(x^2 + y^2))
+
+sample_fun <- function(parents, n){return(slice_sample(parents, n = n, weight_by = sampling_weights))}
+
+Nhat = map_dbl(n, function(x) estimate_N(sample_fun(parents = parents, n = x)))
+spatially_biased <- tibble(n = n, Nhat = Nhat)
+ggplot(spatially_biased, aes(x = n, y = Nhat)) + 
+  geom_point() +
+  geom_hline(yintercept = N) +
+  ggtitle("Spatial")
+ggplot(random_sampling, aes(x = n, y = Nhat)) + 
+  geom_point() +
+  geom_hline(yintercept = N) +
+  ggtitle("Random")
+```
+
+```{r}
+ggplot(parents, aes(x = x, y = y, color = sampling_weights)) +
+  geom_point()
+```
+
