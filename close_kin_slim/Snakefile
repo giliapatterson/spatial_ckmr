@@ -1,0 +1,30 @@
+import numpy as np
+Ks = [6, 10, 8, 12, 15, 20]
+nreps = np.arange(4)
+
+sim_pattern = "spatial_kin/spatial_sim_{K}_{rep}{ext}"
+input_matrices = expand(sim_pattern, K=Ks, rep = nreps, ext=".csv")
+pop_sizes = expand(sim_pattern, K=Ks, rep = nreps, ext=".N.csv")
+rule all:
+    input: 
+        "spatial_kin/labels.csv"
+rule run_slim:
+    output:
+        "spatial_ts/spatial_sim_{K}_{rep}.trees"
+    shell:
+        "slim -d K={wildcards.K} -d 'OUTFILE=\"{output}\"' vignette_space.slim"
+rule get_kin:
+    input:
+        "spatial_ts/spatial_sim_{K}_{rep}.trees"
+    output:
+        "spatial_kin/spatial_sim_{K}_{rep}.csv",
+        temporary("spatial_kin/spatial_sim_{K}_{rep}.N.csv")
+    shell:
+        "python get_kin.py {input} {output}"
+rule aggregate:
+    input:
+        input_matrices, pop_sizes 
+    output:
+        "spatial_kin/labels.csv",
+    shell:
+        "cat {pop_sizes}  > spatial_kin/labels.csv" 
