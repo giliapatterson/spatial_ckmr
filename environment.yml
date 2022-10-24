@@ -1,0 +1,15 @@
+name: ckmr_snakemake
+channels:
+    - conda-forge
+    - bioconda
+dependencies:
+    - msprime
+    - pyslim
+    - tskit
+    - numpy
+    - scipy
+    - pytorch
+    - snakemake
+    - jupyterlab
+    - matplotlib
+    - scikit-learn
