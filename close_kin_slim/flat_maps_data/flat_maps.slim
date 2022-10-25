@@ -1,0 +1,117 @@
+initialize() {
+    initializeSLiMModelType("nonWF");
+    initializeSLiMOptions(dimensionality="xy");
+    initializeTreeSeq(retainCoalescentOnly=F);
+
+    if (!exists("seed")) {
+      seed = getSeed(); 
+    }
+    if (!exists("NUMGENS")) {
+      defineConstant("NUMGENS", 30); 
+    }
+    if (!exists("W")) {
+      defineConstant("W", 10.0);  // width of the simulated area 
+    }
+    if (!exists("OUTFILE")) { 
+      defineConstant("OUTFILE", "test_flat_map." + NUMGENS + "." + seed + ".trees"); 
+    }
+    if (!exists("SIGMA")) {
+      defineConstant("SIGMA", 0.3);
+    }
+    if (!exists("SD")) {
+      defineConstant("SD", SIGMA);
+    }
+    if (!exists("SI")) {
+      defineConstant("SI", SIGMA);
+    }
+    if (!exists("K")) {
+      defineConstant("K", 5);  // carrying-capacity per unit square (roughly)
+    }
+    if (!exists("BURNIN")) {
+      defineConstant("BURNIN", 200);  // number of ticks before full recording begins
+    }
+
+    catn(c("NUMGENS =", NUMGENS));
+    catn(c("BURNIN =", BURNIN));
+    catn(c("W =", W));
+    catn(c("SIGMA =", SIGMA));
+    catn(c("K =", K));
+    defineConstant("A", 1.0);  // height/width of the simulated area
+    catn(c("A =", A));
+    catn(c("SD =", SD));
+    catn(c("SI =", SI));
+    defineConstant("SM", SIGMA);  // sigma_M, the mate choice distance
+    catn(c("SM =", SM));
+    defineConstant("L", 4);    // mean lifetime at stationarity
+    catn(c("L =", L));
+    defineConstant("G", 2e9);  // genome length
+    catn(c("G =", G));
+    defineConstant("FECUN", 1/L); // mean fecundity
+    catn(c("FECUN =", FECUN));
+    defineConstant("RHO", FECUN/((1+FECUN) * K)); // constant in spatial competition function
+
+    initializeMutationType("m1", 0.5, "g", 0.0, 2);
+    initializeGenomicElementType("g1", m1, 1.0);
+    initializeGenomicElement(g1, 0, G-1);
+    initializeMutationRate(0.0);
+    initializeRecombinationRate(1e-9);
+    
+    // spatial competition
+    initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SI * 3);
+    i1.setInteractionFunction("n", 1.0/(2*PI*SI^2), SI);
+    
+    // mate choice
+    initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SM * 3);
+    i2.setInteractionFunction("n", 1.0/(2*PI*SM^2), SM);
+}
+
+reproduction() {
+    // choose our nearest neighbor as a mate, within the max distance
+    mate = i2.drawByStrength(individual, 1);
+    if (mate.size()) {
+        nOff = rpois(1, FECUN);
+        // record number of offspring in the tag
+        individual.tag = individual.tag + nOff;
+        for (i in seqLen(rpois(1, 1/L))) {
+            pos = individual.spatialPosition + rnorm(2, 0, SD);
+            if (p1.pointInBounds(pos)) {
+              offspring = subpop.addCrossed(individual, mate);
+              offspring.setSpatialPosition(p1.pointReflected(pos));
+              offspring.tag = 0;
+            }
+        }
+    }
+    return;
+}
+
+1 early() {
+    sim.addSubpop("p1", asInteger(K * A * W * W));
+    p1.setSpatialBounds(c(0, 0, W, A * W));
+    // random initial positions
+    for (ind in p1.individuals) {
+        ind.setSpatialPosition(p1.pointUniform());
+        ind.tag = 0;
+    }
+    i1.evaluate(sim.subpopulations);
+
+    community.rescheduleScriptBlock(s99, ticks=BURNIN + NUMGENS);
+}
+
+early() {
+    i1.evaluate(p1);
+    inds = p1.individuals;
+    competition = i1.localPopulationDensity(inds);
+    // record strength of competition in the tagF
+    inds.tagF = competition;
+    inds.fitnessScaling = pmin(0.95, 1/(1 + RHO * competition));    
+}
+
+1: late() {
+   // to be ready for mate choice
+   i2.evaluate(p1);
+}
+
+s99 200000 late() {
+   sim.treeSeqOutput(OUTFILE, simplify=F);
+   sim.simulationFinished();
+}

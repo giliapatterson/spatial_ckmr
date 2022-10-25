@@ -12,7 +12,7 @@ rule run_slim:
     output:
         "spatial_ts/spatial_sim_{K}_{rep}.trees"
     shell:
-        "slim -d K={wildcards.K} -d 'OUTFILE=\"{output}\"' vignette_space.slim"
+        "slim -d K={wildcards.K} -d 'OUTFILE=\"{output}\"' flat_maps.slim"
 rule get_kin:
     input:
         "spatial_ts/spatial_sim_{K}_{rep}.trees"
@@ -20,7 +20,7 @@ rule get_kin:
         "spatial_kin/spatial_sim_{K}_{rep}.csv",
         temporary("spatial_kin/spatial_sim_{K}_{rep}.N.csv")
     shell:
-        "python get_kin.py {input} {output}"
+        "python ../get_kin.py {input} {output}"
 rule aggregate:
     input:
         input_matrices, pop_sizes 
