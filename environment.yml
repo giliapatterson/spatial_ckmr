@@ -13,3 +13,4 @@ dependencies:
     - jupyterlab
     - matplotlib
     - scikit-learn
+    - slim

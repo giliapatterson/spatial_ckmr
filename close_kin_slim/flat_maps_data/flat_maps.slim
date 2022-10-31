@@ -111,6 +111,9 @@ early() {
    i2.evaluate(p1);
 }
 
+late() {
+    sim.treeSeqRememberIndividuals(p1.individuals, permanent=T);
+}
 s99 200000 late() {
    sim.treeSeqOutput(OUTFILE, simplify=F);
    sim.simulationFinished();

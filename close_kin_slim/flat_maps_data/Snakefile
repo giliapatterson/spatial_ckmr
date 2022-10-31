@@ -1,13 +1,13 @@
 import numpy as np
-Ks = [6, 10, 8, 12, 15, 20]
-nreps = np.arange(4)
+Ks = np.arange(5, 10, step = 0.25)
+nreps = np.arange(100)
 
 sim_pattern = "spatial_kin/spatial_sim_{K}_{rep}{ext}"
 input_matrices = expand(sim_pattern, K=Ks, rep = nreps, ext=".csv")
 pop_sizes = expand(sim_pattern, K=Ks, rep = nreps, ext=".N.csv")
 rule all:
     input: 
-        "spatial_kin/labels.csv"
+        "labels.csv"
 rule run_slim:
     output:
         "spatial_ts/spatial_sim_{K}_{rep}.trees"
@@ -20,11 +20,11 @@ rule get_kin:
         "spatial_kin/spatial_sim_{K}_{rep}.csv",
         temporary("spatial_kin/spatial_sim_{K}_{rep}.N.csv")
     shell:
-        "python ../get_kin.py {input} {output}"
+        "python ../get_kin.py {input} {output} 30"
 rule aggregate:
     input:
         input_matrices, pop_sizes 
     output:
-        "spatial_kin/labels.csv",
+        "labels.csv",
     shell:
-        "cat {pop_sizes}  > spatial_kin/labels.csv" 
+        "cat {pop_sizes}  > labels.csv" 

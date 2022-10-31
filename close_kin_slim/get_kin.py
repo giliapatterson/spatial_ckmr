@@ -14,6 +14,7 @@ rng = np.random.default_rng()
 ts_path = sys.argv[1]
 outfile = sys.argv[2]
 outN = sys.argv[3]
+sample_size = int(sys.argv[4])
 
 slim_ts = tskit.load(ts_path)
 
@@ -21,12 +22,12 @@ def get_kin(tree_seq, pairs):
     '''
     tree_seq: tree sequence with all individuals remembered
     pairs: individuals to compare [ind1, ind2]
-    Returns a numpy array, each row is a pair, columns are: self (0 or 1), half-sib (0 or 1), full-sib (0 or 1),
+    Returns a numpy array, each row is a pair, columns are: self (0 or 1), half-sib (0 or 1), full-sib (0 or 1), age, age,
     x-coordinate, y-coordinate, x-coordinate, y-coordinate
     '''
     pairs = list(pairs)
     npairs = len(pairs)
-    input_matrix = np.zeros([npairs, 6])                                   
+    input_matrix = np.zeros([npairs, 8])                                   
     i = 0
     for pair in pairs:
         ind0 = slim_ts.individual(pair[0])
@@ -44,22 +45,25 @@ def get_kin(tree_seq, pairs):
         elif nshared == 2:
             input_matrix[i, 1] = 1
             # print("full-sibs")
+        # Ages
+        input_matrix[i, 2] = ind0.metadata['age']
+        input_matrix[i, 3] = ind1.metadata['age']
         # Locations
-        input_matrix[i, [2, 3]] = ind0.location[[0,1]]
-        input_matrix[i, [4, 5]] = ind1.location[[0,1]]
+        input_matrix[i, [4, 5]] = ind0.location[[0,1]]
+        input_matrix[i, [6, 7]] = ind1.location[[0,1]]
         i += 1
     return(input_matrix)
 
 # Sample from individuals currently alive and get close-kin relationships
 current_individuals = pyslim.individuals_alive_at(slim_ts, 0)
-sample = rng.choice(current_individuals, 20, replace = False)
+sample = rng.choice(current_individuals, sample_size, replace = False)
 pairs = itertools.combinations(sample, 2)
 input_matrix = get_kin(slim_ts.first(), pairs)
 
 # Population size
 N = len(current_individuals)
 
-np.savetxt(outfile, input_matrix, delimiter = ',', header = "half-sibs, sibs, x0, y0, x1, y1")
+np.savetxt(outfile, input_matrix, delimiter = ',', header = "half-sibs, sibs, age0, age1, x0, y0, x1, y1")
 
 
 with open(outN, "w") as f:
