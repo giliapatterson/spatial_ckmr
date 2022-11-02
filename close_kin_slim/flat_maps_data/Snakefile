@@ -20,7 +20,7 @@ rule get_kin:
         "spatial_kin/spatial_sim_{K}_{rep}.csv",
         temporary("spatial_kin/spatial_sim_{K}_{rep}.N.csv")
     shell:
-        "python ../get_kin.py {input} {output} 30"
+        "python get_kin.py {input} {output} 30"
 rule aggregate:
     input:
         input_matrices, pop_sizes 

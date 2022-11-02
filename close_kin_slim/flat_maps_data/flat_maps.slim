@@ -7,7 +7,7 @@ initialize() {
       seed = getSeed(); 
     }
     if (!exists("NUMGENS")) {
-      defineConstant("NUMGENS", 30); 
+      defineConstant("NUMGENS", 230); 
     }
     if (!exists("W")) {
       defineConstant("W", 10.0);  // width of the simulated area 
@@ -27,12 +27,8 @@ initialize() {
     if (!exists("K")) {
       defineConstant("K", 5);  // carrying-capacity per unit square (roughly)
     }
-    if (!exists("BURNIN")) {
-      defineConstant("BURNIN", 200);  // number of ticks before full recording begins
-    }
 
     catn(c("NUMGENS =", NUMGENS));
-    catn(c("BURNIN =", BURNIN));
     catn(c("W =", W));
     catn(c("SIGMA =", SIGMA));
     catn(c("K =", K));
@@ -94,7 +90,7 @@ reproduction() {
     }
     i1.evaluate(sim.subpopulations);
 
-    community.rescheduleScriptBlock(s99, ticks=BURNIN + NUMGENS);
+    community.rescheduleScriptBlock(s99, ticks=NUMGENS);
 }
 
 early() {
