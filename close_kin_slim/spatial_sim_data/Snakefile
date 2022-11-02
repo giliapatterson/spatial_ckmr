@@ -1,0 +1,35 @@
+import numpy as np
+#Ks = np.arange(5, 10, step = 0.25)
+#nreps = np.arange(100)
+Ks = np.arange(500, 1000, step = 100)
+nreps = np.arange(2)
+
+parents_pattern = "input_matrices/spatial_sim_parents_{K}_{rep}{ext}"
+input_matrices = expand(parents_pattern, K=Ks, rep = nreps, ext=".csv")
+pop_sizes = expand(parents_pattern, K=Ks, rep = nreps, ext=".N.csv")
+rule all:
+    input: 
+        "labels.csv"
+
+rule run_slim:
+    output:
+        "spatial_parents/spatial_sim_parents_{K}_{rep}.csv"
+    shell:
+        "slim -d K={wildcards.K} -d 'OUTPUT=\"{output}\"' spatial_sim.slim"
+
+rule get_kin:
+    input:
+        "spatial_parents/spatial_sim_parents_{K}_{rep}.csv"
+    output:
+        "input_matrices/spatial_sim_parents_{K}_{rep}.csv",
+        temporary("input_matrices/spatial_sim_parents_{K}_{rep}.N.csv")
+    shell:
+        "python get_kin_parents.py {input} {output} 150"
+
+rule aggregate:
+    input:
+        input_matrices, pop_sizes
+    output:
+        "labels.csv",
+    shell:
+        "cat {pop_sizes}  > labels.csv"

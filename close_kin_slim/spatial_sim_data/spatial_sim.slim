@@ -1,0 +1,91 @@
+initialize() {
+	initializeSLiMModelType("nonWF");
+	initializeSLiMOptions(keepPedigrees=T, dimensionality="xy", periodicity="xy");
+	// initializeTreeSeq(retainCoalescentOnly=F);
+	
+	if (!exists("OUTPUT")) { 
+      defineConstant("OUTPUT", "test_spatial_parents.csv"); 
+   }
+   
+	// if (!exists("OUTFILE")) { 
+   //   defineConstant("OUTFILE", "test_spatial_sim.trees"); 
+   //}
+   if (!exists("K")) {
+   	defineConstant("K", 500);   // carrying capacity
+   }
+	if (!exists("S")){
+		defineConstant("S", 0.1);   // spatial competition distance
+	}
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	m1.convertToSubstitution = T;
+	
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 99999);
+	initializeMutationRate(0);
+	initializeRecombinationRate(1e-8);
+	
+	// spatial competition
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=S);
+	
+	// spatial mate choice
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=0.1);
+}
+first() {
+	i2.evaluate(sim.subpopulations);
+}
+
+reproduction() {
+	// choose our nearest neighbor as a mate, within the max distance
+	mate = i2.drawByStrength(individual, 1);
+	
+	for (i in seqLen(rpois(1, 0.1)))
+	{
+		// Everyone selfs!
+		//if (mate.size())
+		//	offspring = subpop.addCrossed(individual, mate);
+		//else
+		//	offspring = subpop.addSelfed(individual);
+		// set offspring position
+		offspring = subpop.addSelfed(individual);
+		pos = individual.spatialPosition + rnorm(2, 0, 0.02);
+		offspring.setSpatialPosition(p1.pointPeriodic(pos));
+	}
+}
+1 early() {
+	 sim.addSubpop("p1", K);
+    p1.setSpatialBounds(c(0, 0, 1, 1));
+    // random initial positions
+    for (ind in p1.individuals) {
+        ind.setSpatialPosition(p1.pointUniform());
+    }
+}
+early() {
+	i1.evaluate(sim.subpopulations);
+	
+	// spatial competition provides density-dependent selection
+	inds = p1.individuals;
+	competition = i1.totalOfNeighborStrengths(inds);
+	competition = (competition + 1) / (PI * S^2);
+	inds.fitnessScaling = K / competition;
+}
+late()
+{
+	// move around a bit
+	for (ind in p1.individuals)
+	{
+		newPos = ind.spatialPosition + runif(2, -0.01, 0.01);
+		ind.setSpatialPosition(p1.pointPeriodic(newPos));
+	}
+}
+
+late() {
+    //sim.treeSeqRememberIndividuals(p1.individuals, permanent=T);
+}
+
+300 late() {
+	 writeFile(OUTPUT, "individual, parent1, parent2, x, y, age");
+	 for(ind in p1.individuals){
+		writeFile(OUTPUT, paste(c(ind.pedigreeID, ind.pedigreeParentIDs, ind.x, ind.y, ind.age), sep = ","), append = T);
+	 }
+	 //sim.treeSeqOutput(OUTFILE, simplify=F);
+}
