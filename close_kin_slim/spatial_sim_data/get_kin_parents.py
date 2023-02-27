@@ -44,5 +44,5 @@ kin_matrix, N = get_parents(parents_file, n)
 np.savetxt(outfile, kin_matrix, delimiter = ',', header = "parent0of1, parent1of0, x0, y0, x1, y1, age0, age1")
 
 with open(outN, "w") as f:
-    f.write(outfile + "," + str(N) + "\n")
+    f.write(outfile + "," + str(N) + "," + str(n) + "\n")
 
