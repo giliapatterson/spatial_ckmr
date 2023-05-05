@@ -7,6 +7,7 @@ from scipy import stats
 import itertools
 import math
 import sys
+import pandas as pd
 
 rng = np.random.default_rng()
 
@@ -63,8 +64,8 @@ input_matrix = get_kin(slim_ts.first(), pairs)
 # Population size
 N = len(current_individuals)
 
-np.savetxt(outfile, input_matrix, delimiter = ',', header = "half-sibs, sibs, age0, age1, x0, y0, x1, y1")
-
+#np.savetxt(outfile, input_matrix, delimiter = ',', header = "half-sibs, sibs, age0, age1, x0, y0, x1, y1")
+pd.DataFrame(input_matrix).to_csv(outfile, header = ["half-sibs", "sibs", "age0", "age1", "x0", "y0", "x1", "y1"], index = False)
 
 with open(outN, "w") as f:
     f.write(outfile + "," + str(N) + "\n")

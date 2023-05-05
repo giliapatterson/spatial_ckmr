@@ -1,5 +1,5 @@
 import numpy as np
-Ks = np.arange(5, 10, step = 0.25)
+Ks = np.arange(5, 10, step = 1)
 nreps = np.arange(100)
 
 sim_pattern = "spatial_kin/spatial_sim_{K}_{rep}{ext}"
@@ -18,9 +18,9 @@ rule get_kin:
         "spatial_ts/spatial_sim_{K}_{rep}.trees"
     output:
         "spatial_kin/spatial_sim_{K}_{rep}.csv",
-        temporary("spatial_kin/spatial_sim_{K}_{rep}.N.csv")
+        "spatial_kin/spatial_sim_{K}_{rep}.N.csv"
     shell:
-        "python get_kin.py {input} {output} 30"
+        "python ../get_kin.py {input} {output} 30"
 rule aggregate:
     input:
         input_matrices, pop_sizes 
