@@ -41,7 +41,7 @@ def get_parents(parents_file, n):
 # Sample from individuals currently alive and get parent offspring relationships
 kin_matrix, N = get_parents(parents_file, n)
 
-np.savetxt(outfile, kin_matrix, delimiter = ',', header = "parent0of1, parent1of0, x0, y0, x1, y1, age0, age1")
+pd.DataFrame(kin_matrix).to_csv(outfile, header = ["parent0of1", "parent1of0", "x0", "y0", "x1", "y1", "age0", "age1"], index = False)
 
 with open(outN, "w") as f:
     f.write(outfile + "," + str(N) + "," + str(n) + "\n")

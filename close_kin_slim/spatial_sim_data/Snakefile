@@ -3,20 +3,17 @@ import numpy as np
 Ks = [500, 999]
 #nreps = np.arange(10)
 nreps = np.arange(2)
-constant_ss = [150]
-constant_ss_pattern = "input_matrices_{constant_ss}/spatial_sim_parents_{K}_{rep}{ext}"
-constant_ss_input = expand(constant_ss_pattern, K=Ks, rep = nreps, constant_ss = constant_ss, ext = ".csv")
-constant_ss_pop_sizes = expand(constant_ss_pattern, K=Ks, rep = nreps, constant_ss = constant_ss, ext = ".N.csv")
-change_ss_pattern = "change_ss_input_matrices/spatial_sim_parents_{K}_{rep}{ext}"
-change_ss_input = expand(change_ss_pattern, K=Ks, rep = nreps, ext = ".csv")
-change_ss_pop_sizes = expand(change_ss_pattern, K=Ks, rep = nreps, ext = ".N.csv")
-print(constant_ss_input)
-print(change_ss_input)
+#ss = [223, 316]
+ss = (np.sqrt(Ks)*10).astype('int')
+sim_pattern = "input_matrices/spatial_sim_parents_{K}_{rep}_{ss}{ext}"
+input_matrices = expand(sim_pattern, K=Ks, rep = nreps, ss = ss, ext=".csv")
+pop_sizes = expand(sim_pattern, K=Ks, rep = nreps, ss = ss, ext=".N.csv")
+print(ss)
+print(Ks)
 
 rule all:
     input: 
-        "labels_{constant_ss}.csv",
-        "change_ss_labels.csv"
+        "labels.csv",
 
 rule run_slim:
     output:
@@ -28,35 +25,15 @@ rule get_kin:
     input:
         "spatial_parents/spatial_sim_parents_{K}_{rep}.csv"
     output:
-        "input_matrices_{consant_ss}/spatial_sim_parents_{K}_{rep}.csv",
-        "input_matrices_{consant_ss}/spatial_sim_parents_{K}_{rep}.N.csv"
+        "input_matrices/spatial_sim_parents_{K}_{rep}_{ss}.csv",
+        temporary("input_matrices/spatial_sim_parents_{K}_{rep}_{ss}.N.csv")
     shell:
-        "python get_kin_parents.py {input} {output} {wildcards.consant_ss}"
+        "python get_kin_parents.py {input} {output} {wildcards.ss}"
 
-rule get_kin_change_ss:
+rule aggregate:
     input:
-        "spatial_parents/spatial_sim_parents_{K}_{rep}.csv"
+        input_matrices, pop_sizes 
     output:
-        "change_ss_input_matrices/spatial_sim_parents_{K}_{rep}.csv",
-        "change_ss_input_matrices/spatial_sim_parents_{K}_{rep}.N.csv"
-    params:
-        ss = int(np.round(np.sqrt({K})*10))
-        #ss = 50
+        "labels.csv",
     shell:
-        "python get_kin_parents.py {input} {output} {params.ss}"	
-
-rule aggregate_constant_ss:
-    input:
-        constant_ss_input, constant_ss_pop_sizes
-    output:
-        "labels_{constant_ss}.csv",
-    shell:
-        "cat {constant_ss_pop_sizes}  > {output}"
-
-rule aggregate_change_ss:
-    input:
-        change_ss_input, change_ss_pop_sizes
-    output:
-        "change_ss_labels.csv",
-    shell:
-        "cat {change_ss_pop_sizes}  > {output}"
+        "cat {pop_sizes}  > labels.csv"
