@@ -1,15 +1,14 @@
 import numpy as np
-#Ks = np.arange(500, 1000, step = 1)
-Ks = [500, 999]
-#nreps = np.arange(10)
+Ks = np.arange(500, 1000, step = 20)
+#Ks = [500, 999]
 nreps = np.arange(2)
-#ss = [223, 316]
-ss = (np.sqrt(Ks)*10).astype('int')
-sim_pattern = "input_matrices/spatial_sim_parents_{K}_{rep}_{ss}{ext}"
-input_matrices = expand(sim_pattern, K=Ks, rep = nreps, ss = ss, ext=".csv")
-pop_sizes = expand(sim_pattern, K=Ks, rep = nreps, ss = ss, ext=".N.csv")
+ss = (np.sqrt(np.max(Ks))*10).astype('int')
 print(ss)
-print(Ks)
+sim_pattern = "{prefix}/spatial_sim_parents_{K}_{rep}_{ss}{ext}"
+input_matrices = expand(sim_pattern, prefix = "input_matrices", K=Ks, rep = nreps, ss = ss, ext=".csv")
+pop_sizes = expand(sim_pattern, prefix = "input_matrices", K=Ks, rep = nreps, ss = ss, ext=".N.csv")
+spaghetti =  expand(sim_pattern, prefix = "images", K=Ks, rep = nreps, ss = ss, ext="_spaghetti.png")
+sampling =  expand(sim_pattern, prefix = "images", K=Ks, rep = nreps, ss = ss, ext="_samples.png")
 
 rule all:
     input: 
@@ -30,9 +29,18 @@ rule get_kin:
     shell:
         "python get_kin_parents.py {input} {output} {wildcards.ss}"
 
+rule plot:
+    input:
+        "input_matrices/spatial_sim_parents_{K}_{rep}_{ss}.csv"
+    output:
+        "images/spatial_sim_parents_{K}_{rep}_{ss}_spaghetti.png",
+        "images/spatial_sim_parents_{K}_{rep}_{ss}_samples.png"
+    shell:
+        "python make_spaghetti.py {input} {output}"
+
 rule aggregate:
     input:
-        input_matrices, pop_sizes 
+        spaghetti, sampling, pop_sizes 
     output:
         "labels.csv",
     shell:

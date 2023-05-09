@@ -13,6 +13,9 @@ initialize() {
    if (!exists("K")) {
    	defineConstant("K", 500);   // carrying capacity
    }
+   if (!exists("SIGMA")) {
+   	defineConstant("SIGMA", 0.5);   // carrying capacity
+   }
 	if (!exists("S")){
 		defineConstant("S", 0.1);   // spatial competition distance
 	}
@@ -47,8 +50,8 @@ reproduction() {
 		//	offspring = subpop.addSelfed(individual);
 		// set offspring position
 		offspring = subpop.addSelfed(individual);
-		pos = individual.spatialPosition + rnorm(2, 0, 0.02);
-		offspring.setSpatialPosition(p1.pointPeriodic(pos));
+		pos = individual.spatialPosition + rnorm(2, 0, SIGMA);
+        offspring.setSpatialPosition(p1.pointReflected(pos));
 	}
 }
 1 early() {
@@ -74,7 +77,8 @@ late()
 	for (ind in p1.individuals)
 	{
 		newPos = ind.spatialPosition + runif(2, -0.01, 0.01);
-		ind.setSpatialPosition(p1.pointPeriodic(newPos));
+		ind.setSpatialPosition(p1.pointReflected(newPos));
+		
 	}
 }
 
