@@ -6,7 +6,7 @@ ss = (np.sqrt(np.max(Ks))*10).astype('int')
 print(ss)
 sim_pattern = "{prefix}/spatial_sim_parents_{K}_{rep}_{ss}{ext}"
 input_matrices = expand(sim_pattern, prefix = "input_matrices", K=Ks, rep = nreps, ss = ss, ext=".csv")
-pop_sizes = expand(sim_pattern, prefix = "input_matrices", K=Ks, rep = nreps, ss = ss, ext=".N.csv")
+pop_sizes = expand(sim_pattern, prefix = "pop_sizes", K=Ks, rep = nreps, ss = ss, ext=".N.csv")
 spaghetti =  expand(sim_pattern, prefix = "images", K=Ks, rep = nreps, ss = ss, ext="_spaghetti.png")
 sampling =  expand(sim_pattern, prefix = "images", K=Ks, rep = nreps, ss = ss, ext="_samples.png")
 
@@ -31,12 +31,13 @@ rule get_kin:
 
 rule plot:
     input:
-        "input_matrices/spatial_sim_parents_{K}_{rep}_{ss}.csv"
+        "spatial_parents/spatial_sim_parents_{K}_{rep}.csv"
     output:
         "images/spatial_sim_parents_{K}_{rep}_{ss}_spaghetti.png",
-        "images/spatial_sim_parents_{K}_{rep}_{ss}_samples.png"
+        "images/spatial_sim_parents_{K}_{rep}_{ss}_samples.png",
+        "pop_sizes/spatial_sim_parents_{K}_{rep}_{ss}.N.csv"
     shell:
-        "python make_spaghetti.py {input} {output}"
+        "python make_spaghetti.py {input} {wildcards.ss} {output}"
 
 rule aggregate:
     input:
