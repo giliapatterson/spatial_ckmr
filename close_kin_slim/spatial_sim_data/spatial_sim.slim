@@ -14,11 +14,19 @@ initialize() {
    	defineConstant("K", 500);   // carrying capacity
    }
    if (!exists("SIGMA")) {
-   	defineConstant("SIGMA", 0.5);   // carrying capacity
+   	defineConstant("SIGMA", 0.5);   // Dispersal
    }
 	if (!exists("S")){
 		defineConstant("S", 0.1);   // spatial competition distance
 	}
+
+	if (!exists("TICK_INTERVAL")) {
+   	defineConstant("TICK_INTERVAL", 100);
+   }
+   if (!exists("BURNIN")) {
+   	defineConstant("BURNIN", 300);
+   }
+
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	m1.convertToSubstitution = T;
 	
@@ -30,25 +38,12 @@ initialize() {
 	// spatial competition
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=S);
 	
-	// spatial mate choice
-	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=0.1);
-}
-first() {
-	i2.evaluate(sim.subpopulations);
 }
 
 reproduction() {
-	// choose our nearest neighbor as a mate, within the max distance
-	mate = i2.drawByStrength(individual, 1);
 	
 	for (i in seqLen(rpois(1, 0.1)))
 	{
-		// Everyone selfs!
-		//if (mate.size())
-		//	offspring = subpop.addCrossed(individual, mate);
-		//else
-		//	offspring = subpop.addSelfed(individual);
-		// set offspring position
 		offspring = subpop.addSelfed(individual);
 		pos = individual.spatialPosition + rnorm(2, 0, SIGMA);
         offspring.setSpatialPosition(p1.pointReflected(pos));
@@ -67,8 +62,7 @@ early() {
 	
 	// spatial competition provides density-dependent selection
 	inds = p1.individuals;
-	competition = i1.totalOfNeighborStrengths(inds);
-	competition = (competition + 1) / (PI * S^2);
+	competition = i1.localPopulationDensity(inds);
 	inds.fitnessScaling = K / competition;
 }
 late()
@@ -78,7 +72,6 @@ late()
 	{
 		newPos = ind.spatialPosition + runif(2, -0.01, 0.01);
 		ind.setSpatialPosition(p1.pointReflected(newPos));
-		
 	}
 }
 
@@ -86,10 +79,19 @@ late() {
     //sim.treeSeqRememberIndividuals(p1.individuals, permanent=T);
 }
 
-300 late() {
-	 writeFile(OUTPUT, "individual, parent1, parent2, x, y, age");
-	 for(ind in p1.individuals){
-		writeFile(OUTPUT, paste(c(ind.pedigreeID, ind.pedigreeParentIDs, ind.x, ind.y, ind.age), sep = ","), append = T);
-	 }
-	 //sim.treeSeqOutput(OUTFILE, simplify=F);
+
+late() {
+	// check age distribution
+	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
+		i = asInteger((community.tick - BURNIN)/TICK_INTERVAL);
+		writeFile(OUTPUT + "_" + i + ".csv", "individual, parent1, parent2, x, y, age");
+		for(ind in p1.individuals){
+			writeFile(OUTPUT + "_" + i + ".csv", paste(c(ind.pedigreeID, ind.pedigreeParentIDs, ind.x, ind.y, ind.age), sep = ","), append = T);
+		}
+		//sim.treeSeqOutput(OUTFILE, simplify=F);
+	}
+}
+
+3000 late() {
+	sim.simulationFinished();
 }

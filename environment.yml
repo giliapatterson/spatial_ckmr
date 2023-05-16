@@ -2,6 +2,7 @@ name: ckmr_snakemake
 channels:
     - conda-forge
     - bioconda
+    - pytorch
 dependencies:
     - msprime
     - pyslim
@@ -14,4 +15,6 @@ dependencies:
     - matplotlib
     - scikit-learn
     - slim
-    - PIL
+    - torchvision
+    - gpustat
+    - r-tidyverse

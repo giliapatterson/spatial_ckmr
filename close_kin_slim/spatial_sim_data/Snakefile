@@ -1,9 +1,17 @@
 import numpy as np
-Ks = np.arange(500, 1000, step = 20)
-#Ks = [500, 999]
-nreps = np.arange(2)
-ss = (np.sqrt(np.max(Ks))*10).astype('int')
-print(ss)
+Ks = np.arange(1000, 10000, step = 100)
+#Ks = [1500, 9900]
+#ss = (np.sqrt(np.max(Ks))*10).astype('int')
+ss = 500
+# generations to run SLiM for
+n_generations = 3000
+# burn in
+burnin = 300
+# ticks between saving parents
+tick_interval = 100
+# Total number of files saved for each sim
+nreps = range(int((n_generations-burnin)/tick_interval))
+
 sim_pattern = "{prefix}/spatial_sim_parents_{K}_{rep}_{ss}{ext}"
 input_matrices = expand(sim_pattern, prefix = "input_matrices", K=Ks, rep = nreps, ss = ss, ext=".csv")
 pop_sizes = expand(sim_pattern, prefix = "pop_sizes", K=Ks, rep = nreps, ss = ss, ext=".N.csv")
@@ -15,10 +23,12 @@ rule all:
         "labels.csv",
 
 rule run_slim:
+    params:
+        base_output = "spatial_parents/spatial_sim_parents_{K}"
     output:
-        "spatial_parents/spatial_sim_parents_{K}_{rep}.csv"
+       ["spatial_parents/spatial_sim_parents_{K}_" + s for s in expand("{rep}.csv", rep = nreps)]
     shell:
-        "slim -d K={wildcards.K} -d 'OUTPUT=\"{output}\"' spatial_sim.slim"
+        "slim -d K={wildcards.K} -d 'OUTPUT=\"{params.base_output}\"' -d TICK_INTERVAL={tick_interval} -d BURNIN={burnin} spatial_sim.slim"
 
 rule get_kin:
     input:

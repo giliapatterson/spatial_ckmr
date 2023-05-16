@@ -23,11 +23,13 @@ pairs = list(itertools.combinations(sample_rows, 2))
 
 # creating new Image object for spaghetti and sampling
 w, h = 500, 500
-spaghetti = Image.new("RGB", (w, h))
-sampling = Image.new("RGB", (w, h))
+spaghetti = Image.new("1", (w, h))
+sampling = Image.new("1", (w, h))
 img1 = ImageDraw.Draw(spaghetti)
 img2 = ImageDraw.Draw(sampling)
 
+#Number of parent offspring pairs
+npairs = 0
 # Plot spaghetti and sampling
 for pair in pairs:
     ind0_i = pair[0]
@@ -40,10 +42,11 @@ for pair in pairs:
     y1 = ind1['y']*h
     if(ind0['individual'] == ind1['parent1'] or ind1['individual'] == ind0['parent1']):
         img1.line([(x0, y0), (x1, y1)], fill ="white", width = 0)
+        npairs += 1
     img2.point([(x0, y0), (x1, y1)], fill = "white") 
 
 
 spaghetti.save(spaghetti_out)
 sampling.save(sampling_out)
 with open(outN, "w") as f:
-    f.write(spaghetti_out.replace("_spaghetti.png", "") + "," + str(N) + "," + str(n) + "\n")
+    f.write(spaghetti_out.replace("_spaghetti.png", "") + "," + str(N) + "," + str(n) + "," + str(npairs) + "\n")
