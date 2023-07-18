@@ -16,9 +16,12 @@ outN = sys.argv[5]
 
 # Sample and get all combinations of pairs
 parents = pd.read_csv(parents_file)
+# Why don't column names get read in
 parents.columns = ['individual', 'parent1', 'parent2', 'x', 'y', 'age']
 N = len(parents)
 sample_rows = rng.choice(np.arange(N), n, replace = False)
+
+# Make this faster, maybe with a dictionary
 pairs = list(itertools.combinations(sample_rows, 2))
 
 # creating new Image object for spaghetti and sampling

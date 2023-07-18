@@ -1,6 +1,6 @@
 import numpy as np
-Ks = np.arange(1000, 10000, step = 100)
-#Ks = [1500, 9900]
+#Ks = np.arange(1000, 10000, step = 100)
+Ks = 9900
 #ss = (np.sqrt(np.max(Ks))*10).astype('int')
 ss = 500
 # generations to run SLiM for
@@ -11,41 +11,34 @@ burnin = 300
 tick_interval = 100
 # Total number of files saved for each sim
 nreps = range(int((n_generations-burnin)/tick_interval))
+# Could make SLiM figure out ticks from number of replicates
 
+# Pattern for parents from simulation
 sim_pattern = "{prefix}/spatial_sim_parents_{K}_{rep}_{ss}{ext}"
-input_matrices = expand(sim_pattern, prefix = "input_matrices", K=Ks, rep = nreps, ss = ss, ext=".csv")
-pop_sizes = expand(sim_pattern, prefix = "pop_sizes", K=Ks, rep = nreps, ss = ss, ext=".N.csv")
-spaghetti =  expand(sim_pattern, prefix = "images", K=Ks, rep = nreps, ss = ss, ext="_spaghetti.png")
-sampling =  expand(sim_pattern, prefix = "images", K=Ks, rep = nreps, ss = ss, ext="_samples.png")
+pop_sizes = expand(sim_pattern, prefix = "pop_sizes_test", K=Ks, rep = nreps, ss = ss, ext=".N.csv")
+spaghetti =  expand(sim_pattern, prefix = "images_test", K=Ks, rep = nreps, ss = ss, ext="_spaghetti.png")
+sampling =  expand(sim_pattern, prefix = "images_test", K=Ks, rep = nreps, ss = ss, ext="_samples.png")
 
 rule all:
     input: 
-        "labels.csv",
+        "labels_test.csv",
 
 rule run_slim:
     params:
-        base_output = "spatial_parents/spatial_sim_parents_{K}"
+        base_output = "spatial_parents_test/spatial_sim_parents_{K}"
     output:
-       ["spatial_parents/spatial_sim_parents_{K}_" + s for s in expand("{rep}.csv", rep = nreps)]
+        # Use base output here
+       ["spatial_parents_test/spatial_sim_parents_{K}_" + s for s in expand("{rep}.csv", rep = nreps)]
     shell:
         "slim -d K={wildcards.K} -d 'OUTPUT=\"{params.base_output}\"' -d TICK_INTERVAL={tick_interval} -d BURNIN={burnin} spatial_sim.slim"
 
-rule get_kin:
-    input:
-        "spatial_parents/spatial_sim_parents_{K}_{rep}.csv"
-    output:
-        "input_matrices/spatial_sim_parents_{K}_{rep}_{ss}.csv",
-        temporary("input_matrices/spatial_sim_parents_{K}_{rep}_{ss}.N.csv")
-    shell:
-        "python get_kin_parents.py {input} {output} {wildcards.ss}"
-
 rule plot:
     input:
-        "spatial_parents/spatial_sim_parents_{K}_{rep}.csv"
+        "spatial_parents_test/spatial_sim_parents_{K}_{rep}.csv"
     output:
-        "images/spatial_sim_parents_{K}_{rep}_{ss}_spaghetti.png",
-        "images/spatial_sim_parents_{K}_{rep}_{ss}_samples.png",
-        "pop_sizes/spatial_sim_parents_{K}_{rep}_{ss}.N.csv"
+        "images_test/spatial_sim_parents_{K}_{rep}_{ss}_spaghetti.png",
+        "images_test/spatial_sim_parents_{K}_{rep}_{ss}_samples.png",
+        "pop_sizes_test/spatial_sim_parents_{K}_{rep}_{ss}.N.csv"
     shell:
         "python make_spaghetti.py {input} {wildcards.ss} {output}"
 
@@ -53,6 +46,6 @@ rule aggregate:
     input:
         spaghetti, sampling, pop_sizes 
     output:
-        "labels.csv",
+        "labels_test.csv",
     shell:
-        "cat {pop_sizes}  > labels.csv"
+        "cat {pop_sizes}  > {output}"
