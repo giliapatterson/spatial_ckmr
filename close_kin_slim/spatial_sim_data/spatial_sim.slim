@@ -84,9 +84,9 @@ late() {
 	// check age distribution
 	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
 		i = asInteger((community.tick - BURNIN)/TICK_INTERVAL);
-		writeFile(OUTPUT + "_" + i + ".csv", "individual, parent1, parent2, x, y, age");
+		writeFile(OUTPUT + "_" + i + ".csv", "individual, parent1, parent2, age, x, y");
 		for(ind in p1.individuals){
-			writeFile(OUTPUT + "_" + i + ".csv", paste(c(ind.pedigreeID, ind.pedigreeParentIDs, ind.x, ind.y, ind.age), sep = ","), append = T);
+			writeFile(OUTPUT + "_" + i + ".csv", paste(c(ind.pedigreeID, ind.pedigreeParentIDs, ind.age), sep = ",") + "," + paste(c(ind.x, ind.y), sep = ","), append = T);
 		}
 		//sim.treeSeqOutput(OUTFILE, simplify=F);
 	}
