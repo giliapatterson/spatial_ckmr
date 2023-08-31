@@ -1,6 +1,6 @@
 import numpy as np
 Ks = np.arange(1000, 10000, step = 100)
-#Ks = 9900
+#Ks = [1000,9900]
 #ss = (np.sqrt(np.max(Ks))*10).astype('int')
 ss = 500
 # generations to run SLiM for

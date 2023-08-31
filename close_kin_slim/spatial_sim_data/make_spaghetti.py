@@ -17,7 +17,7 @@ outN = sys.argv[5]
 # Sample and get all combinations of pairs
 parents = pd.read_csv(parents_file)
 # Why don't column names get read in
-parents.columns = ['individual', 'parent1', 'parent2', 'x', 'y', 'age']
+parents.columns = ['individual', 'parent1', 'parent2', 'age', 'x', 'y']
 N = len(parents)
 sample_rows = rng.choice(np.arange(N), n, replace = False)
 
