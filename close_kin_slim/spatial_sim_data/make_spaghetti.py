@@ -13,13 +13,39 @@ n = int(sys.argv[2])
 spaghetti_out = sys.argv[3]
 sampling_out = sys.argv[4]
 outN = sys.argv[5]
+method = sys.argv[6]
 
 # Sample and get all combinations of pairs
 parents = pd.read_csv(parents_file)
 # Why don't column names get read in
 parents.columns = ['individual', 'parent1', 'parent2', 'age', 'x', 'y']
 N = len(parents)
-sample_rows = rng.choice(np.arange(N), n, replace = False)
+
+def spatially_biased(parents, nmax):
+    # Sampling area size
+    width = 0.5
+    height = 0.5
+    # Randomly choose sampling area
+    xmin = rng.uniform(0, 1-width)
+    xmax = xmin + width
+    ymin = rng.uniform(0, 1-height)
+    ymax = ymin + height
+
+    # Sample from individuals within the area
+    in_i = np.where(np.logical_and(np.logical_and(parents.loc[:,'x'] <= xmax, parents.loc[:,'x'] >= xmin),
+                    np.logical_and(parents.loc[:,'y'] >= ymin, parents.loc[:,'y'] <= ymax)))[0]
+    # Sample size is nmax or the number of individuals in the area
+    ss = min(len(in_i), nmax)
+    sample_rows = rng.choice(in_i, ss, replace = False)
+    return(sample_rows, ss)
+
+# Sample
+if (method == ""):
+    sample_rows = rng.choice(np.arange(N), n, replace = False)
+    ss = n
+if (method == "biased"):
+    sample_rows, ss = spatially_biased(parents, n)
+
 
 # Make this faster, maybe with a dictionary
 pairs = list(itertools.combinations(sample_rows, 2))
@@ -52,4 +78,4 @@ for pair in pairs:
 spaghetti.save(spaghetti_out)
 sampling.save(sampling_out)
 with open(outN, "w") as f:
-    f.write(spaghetti_out.replace("_spaghetti.png", "") + "," + str(N) + "," + str(n) + "," + str(npairs) + "\n")
+    f.write(spaghetti_out.replace("_spaghetti.png", "") + "," + str(N) + "," + str(ss) + "," + str(npairs) + "\n")

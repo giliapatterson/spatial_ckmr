@@ -18,10 +18,13 @@ sim_pattern = "{prefix}/spatial_sim_parents_{K}_{rep}_{ss}{ext}"
 pop_sizes = expand(sim_pattern, prefix = "pop_sizes", K=Ks, rep = nreps, ss = ss, ext=".N.csv")
 spaghetti =  expand(sim_pattern, prefix = "images", K=Ks, rep = nreps, ss = ss, ext="_spaghetti.png")
 sampling =  expand(sim_pattern, prefix = "images", K=Ks, rep = nreps, ss = ss, ext="_samples.png")
+pop_sizes_bias = expand(sim_pattern, prefix = "pop_sizes_bias", K=Ks, rep = nreps, ss = ss, ext=".N.csv")
+spaghetti_bias =  expand(sim_pattern, prefix = "images_bias", K=Ks, rep = nreps, ss = ss, ext="_spaghetti.png")
+sampling_bias =  expand(sim_pattern, prefix = "images_bias", K=Ks, rep = nreps, ss = ss, ext="_samples.png")
 
 rule all:
     input: 
-        "labels.csv",
+        "labels.csv", "labels_bias.csv"
 
 rule run_slim:
     params:
@@ -42,6 +45,16 @@ rule plot:
     shell:
         "python make_spaghetti.py {input} {wildcards.ss} {output}"
 
+rule plot_bias:
+    input:
+        "spatial_parents/spatial_sim_parents_{K}_{rep}.csv"
+    output:
+        "images_bias/spatial_sim_parents_{K}_{rep}_{ss}_spaghetti.png",
+        "images_bias/spatial_sim_parents_{K}_{rep}_{ss}_samples.png",
+        "pop_sizes_bias/spatial_sim_parents_{K}_{rep}_{ss}.N.csv"
+    shell:
+        "python make_spaghetti.py {input} {wildcards.ss} {output} 'biased'"
+
 rule aggregate:
     input:
         spaghetti, sampling, pop_sizes 
@@ -49,3 +62,11 @@ rule aggregate:
         "labels.csv",
     shell:
         "cat {pop_sizes}  > {output}"
+
+rule aggregate_bias:
+    input:
+        spaghetti_bias, sampling_bias, pop_sizes_bias
+    output:
+        "labels_bias.csv",
+    shell:
+        "cat {pop_sizes_bias}  > {output}"
