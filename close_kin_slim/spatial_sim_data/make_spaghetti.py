@@ -13,8 +13,11 @@ n = int(sys.argv[2])
 spaghetti_out = sys.argv[3]
 sampling_out = sys.argv[4]
 outN = sys.argv[5]
-method = sys.argv[6]
-
+if (len(sys.argv) > 6):
+    method = sys.argv[6]
+else:
+    method = "random"
+#print("Sampling with method", method)
 # Sample and get all combinations of pairs
 parents = pd.read_csv(parents_file)
 # Why don't column names get read in
@@ -40,7 +43,7 @@ def spatially_biased(parents, nmax):
     return(sample_rows, ss)
 
 # Sample
-if (method == ""):
+if (method == "random"):
     sample_rows = rng.choice(np.arange(N), n, replace = False)
     ss = n
 if (method == "biased"):
