@@ -8,6 +8,9 @@ initialize() {
 	if (!exists("OUTPUT")) { 
       defineConstant("OUTPUT", "bearded_seal_parents.csv"); 
    }
+   if (!exists("POPSIZE_FILE")) { 
+      defineConstant("POPSIZE_FILE", "bearded_seal_popsize.csv"); 
+   }
 	if (!exists("TICK_INTERVAL")) {
    	defineConstant("TICK_INTERVAL", 1);
    }
@@ -22,7 +25,8 @@ initialize() {
    	defineConstant("SIGMA", 1);
    }
    
-   writeFile(OUTPUT, "individual, parent1, parent2, age, sampling_time, x, y");
+   writeFile(OUTPUT, "individual,parent1,parent2,age,sampling_time,x,y");
+   writeFile(POPSIZE_FILE, "sampling_time,N");
    
    // Parameters for survival model
    defineConstant("C", 0.2);
@@ -110,11 +114,14 @@ late()
 		newPos = ind.spatialPosition + rnorm(2, 0, SIGMA);
 		ind.setSpatialPosition(p1.pointReflected(newPos));
 	}
+	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
+		writeFile(POPSIZE_FILE, paste(c(community.tick, p1.individualCount), sep = ","), append = T);
+	}
 }
 
 
 late() {
-	// print our age distribution after mortality
+	// Write out population size
 	//catn(sim.cycle + ": " + paste(sort(p1.individuals.age)));
 }
 

@@ -3,9 +3,9 @@ ETA1 = 0.055
 ETA2 = 2.80
 ETA3 = 0.076
 
-ages = 0:60
+ages = 0:200
 p_breed = 1/((1 + exp(-1.264*(ages-5.424))))
-survival = exp(-C*((ETA1*ages)^ETA2 + (ETA1*ages)^(1/ETA2) + ETA3*ages))
+survival = 1-exp(-C*((ETA1*ages)^ETA2 + (ETA1*ages)^(1/ETA2) + ETA3*ages))
 p_mate = 1/((1+exp(-1.868*(ages - 6.5))))
 
 # Survival greater than about 0
