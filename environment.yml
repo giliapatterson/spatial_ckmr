@@ -4,6 +4,7 @@ channels:
     - bioconda
     - pytorch
 dependencies:
+    - python
     - msprime
     - pyslim
     - tskit
@@ -18,3 +19,4 @@ dependencies:
     - torchvision
     - gpustat
     - r-tidyverse
+    - pandas

@@ -1,0 +1,43 @@
+import numpy as np
+R0s = [5, 6, 7, 8, 9, 10]
+reps = np.arange(1, 11)
+
+# burn in
+burnin = 40
+# ticks between saving parents
+tick_interval = 1
+
+# Pattern for parents from simulation
+parent_file_pattern = "bearded_seal_parents/parents_{R0}_{rep}.csv"
+parents = expand(parent_file_pattern, R0 = R0s, rep = reps)
+# Pattern for population sizes from simulation
+popsize_file_pattern = "bearded_seal_popsizes/popsizes_{R0}_{rep}.csv"
+popsizes = expand(popsize_file_pattern, R0 = R0s, rep = reps)
+# Output images
+pattern = "bearded_seal_images/{type}_{R0}_{rep}.png"
+types = ["spaghetti", "samples", "sampling_intensity"]
+image_files = expand(pattern, type = types, R0 = R0s, rep = reps)
+
+rule all:
+    input: 
+        image_files, popsizes, parents
+
+rule run_slim:
+    params:
+        parent_file = parent_file_pattern,
+        popsize_file = popsize_file_pattern
+    output:
+        parent_file_pattern,
+        popsize_file_pattern
+    shell:
+        "slim -d R0={wildcards.R0} -d 'OUTPUT=\"{params.parent_file}\"' -d 'POPSIZE_FILE=\"{params.popsize_file}\"' -d TICK_INTERVAL={tick_interval} -d BURNIN={burnin} bearded_seals.slim"
+
+rule plot:
+    input:
+        parent_file_pattern
+    output:
+        "bearded_seal_images/spaghetti_{R0}_{rep}.png",
+        "bearded_seal_images/samples_{R0}_{rep}.png",
+        "bearded_seal_images/sampling_intensity_{R0}_{rep}.png"
+    shell:
+        "python visualize_parents.py {input} {output}"
