@@ -8,16 +8,26 @@ import pandas as pd
 from PIL import Image, ImageDraw
 rng = np.random.default_rng()
 
-
+# R0, rep
+R0 = sys.argv[1]
+rep = sys.argv[2]
 # Get the parents file path from the command line
-parents_file = sys.argv[1]
+parents_file = sys.argv[3]
+popsize_file = sys.argv[4]
 # Output files
-spaghetti_out = sys.argv[2]
-sampling_out = sys.argv[3]
-intensity_out = sys.argv[4]
+spaghetti_out = sys.argv[5]
+sampling_out = sys.argv[6]
+intensity_out = sys.argv[7]
+metadata_out = sys.argv[8]
 
 # Parents of all dead individuals
 parents = pd.read_csv(parents_file)
+
+# Population sizes
+popsize = pd.read_csv(popsize_file)
+# Calculate average population size
+N = np.mean(popsize.loc[:,'N'])
+
 
 # Sample from the individuals according to a sampling intensity grid. 
 # Individuals from all years are lumped together but I can change this later
@@ -78,7 +88,7 @@ def make_spaghetti(sample_parents, image_w, image_h, max_width, max_height):
         x_parent, y_parent = parent_row[['x','y']]
         img1.line([(x_child*w/max_width, y_child*h/max_height), (x_parent*w/max_width, y_parent*h/max_height)], fill ="white", width = 0)
 
-    return(spaghetti)
+    return(spaghetti, npairs)
 
 def plot_samples(sample_parents, image_w, image_h, max_width, max_height):
     # creating new Image object
@@ -123,10 +133,15 @@ ss, sample_rows = sample_grid(parents, sampling_intensity, 1000, 10, 10)
 sample = parents.iloc[sample_rows]
 
 # Plot spaghetti, locations of samples, and sampling intensity
-spaghetti = make_spaghetti(sample, 500, 500, 10, 10)
+spaghetti, npairs = make_spaghetti(sample, 500, 500, 10, 10)
 sampling = plot_samples(sample, 500, 500, 10, 10)
 intensity = plot_intensity(sampling_intensity, 500, 500)
 
 spaghetti.save(spaghetti_out)
 sampling.save(sampling_out)
 intensity.save(intensity_out)
+
+n = np.sum(ss)
+
+with open(metadata_out, "w") as f:
+    f.write(str(R0) + "," + str(rep) + ","+ str(N) + "," + str(n) + "\n")

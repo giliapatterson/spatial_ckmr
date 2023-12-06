@@ -1,5 +1,5 @@
 import numpy as np
-R0s = [5, 6, 7, 8, 9, 10]
+R0s = np.linspace(8, 12, 10)
 reps = np.arange(1, 11)
 
 # burn in
@@ -17,10 +17,12 @@ popsizes = expand(popsize_file_pattern, R0 = R0s, rep = reps)
 pattern = "bearded_seal_images/{type}_{R0}_{rep}.png"
 types = ["spaghetti", "samples", "sampling_intensity"]
 image_files = expand(pattern, type = types, R0 = R0s, rep = reps)
+metadata_files = expand("bearded_seal_metadata/meta_{R0}_{rep}.csv", R0 = R0s, rep = reps)
+labels_file = "labels.csv"
 
 rule all:
     input: 
-        image_files, popsizes, parents
+        image_files, popsizes, parents, metadata_files, labels_file
 
 rule run_slim:
     params:
@@ -34,10 +36,23 @@ rule run_slim:
 
 rule plot:
     input:
-        parent_file_pattern
+        parent_file_pattern,
+        popsize_file_pattern
     output:
         "bearded_seal_images/spaghetti_{R0}_{rep}.png",
         "bearded_seal_images/samples_{R0}_{rep}.png",
-        "bearded_seal_images/sampling_intensity_{R0}_{rep}.png"
+        "bearded_seal_images/sampling_intensity_{R0}_{rep}.png",
+        "bearded_seal_metadata/meta_{R0}_{rep}.csv"
     shell:
-        "python visualize_parents.py {input} {output}"
+        "python visualize_parents.py {wildcards.R0} {wildcards.rep} {input} {output}"
+
+rule labels:
+    input:
+        metadata_files
+    output:
+        labels_file
+    shell:
+        """
+        echo 'R0,rep,N_avg,n' >> {output}
+        cat {input}  >> {output}
+        """
