@@ -37,7 +37,7 @@ ggplot(un_bias, aes(x = bias_truth, y = unbiased_nn_pred)) +
 
 ggplot(bias_un, aes(x = truth, y = biased_nn_pred)) +
   geom_point() +
-  ggtitle("Trained on: random sampling\nTested on: spatially-biased sampling") +
+  ggtitle("Trained on: spatially-biased sampling\nTested on: random sampling") +
   xlab("True N") +
   ylab("Predicted N") +
   geom_abline(slope = 1) +
