@@ -1,6 +1,8 @@
 import numpy as np
 R0s = np.linspace(8, 12, 10)
 reps = np.arange(1, 11)
+max_int = 30
+biases = np.linspace(1, max_int, 3)
 
 # burn in
 burnin = 40
@@ -14,10 +16,10 @@ parents = expand(parent_file_pattern, R0 = R0s, rep = reps)
 popsize_file_pattern = "bearded_seal_popsizes/popsizes_{R0}_{rep}.csv"
 popsizes = expand(popsize_file_pattern, R0 = R0s, rep = reps)
 # Output images
-pattern = "bearded_seal_images/{type}_{R0}_{rep}.png"
+pattern = "bearded_seal_images/{type}_{R0}_{rep}_{bias}.png"
 types = ["spaghetti", "samples", "sampling_intensity"]
-image_files = expand(pattern, type = types, R0 = R0s, rep = reps)
-metadata_files = expand("bearded_seal_metadata/meta_{R0}_{rep}.csv", R0 = R0s, rep = reps)
+image_files = expand(pattern, type = types, R0 = R0s, rep = reps, bias = biases)
+metadata_files = expand("bearded_seal_metadata/meta_{R0}_{rep}_{bias}.csv", R0 = R0s, rep = reps, bias = biases)
 labels_file = "labels.csv"
 
 rule all:
@@ -35,16 +37,18 @@ rule run_slim:
         "slim -d R0={wildcards.R0} -d 'OUTPUT=\"{params.parent_file}\"' -d 'POPSIZE_FILE=\"{params.popsize_file}\"' -d TICK_INTERVAL={tick_interval} -d BURNIN={burnin} bearded_seals.slim"
 
 rule plot:
+    params:
+        max_bias = max_int
     input:
         parent_file_pattern,
         popsize_file_pattern
     output:
-        "bearded_seal_images/spaghetti_{R0}_{rep}.png",
-        "bearded_seal_images/samples_{R0}_{rep}.png",
-        "bearded_seal_images/sampling_intensity_{R0}_{rep}.png",
-        "bearded_seal_metadata/meta_{R0}_{rep}.csv"
+        "bearded_seal_images/spaghetti_{R0}_{rep}_{bias}.png",
+        "bearded_seal_images/samples_{R0}_{rep}_{bias}.png",
+        "bearded_seal_images/sampling_intensity_{R0}_{rep}_{bias}.png",
+        "bearded_seal_metadata/meta_{R0}_{rep}_{bias}.csv"
     shell:
-        "python visualize_parents.py {wildcards.R0} {wildcards.rep} {input} {output}"
+        "python visualize_parents.py {wildcards.R0} {wildcards.rep} {wildcards.bias} {params.max_bias} {input} {output}"
 
 rule labels:
     input:
@@ -53,6 +57,6 @@ rule labels:
         labels_file
     shell:
         """
-        echo 'R0,rep,N_avg,n' >> {output}
+        echo 'R0,rep,bias,N_avg,n,npairs' >> {output}
         cat {input}  >> {output}
         """

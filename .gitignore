@@ -20,6 +20,7 @@ close_kin_slim/spatial_sim_data/*.csv
 close_kin_slim/*.csv
 replicate_conn/*.csv
 *.png
+*.pt
 close_kin_slim/spatial_sim_data/pop_sizes
 close_kin_slim/spatial_sim_data/pop_sizes_bias
 close_kin_slim/spatial_sim_data/pop_sizes_dispersal0.5
@@ -27,3 +28,7 @@ close_kin_slim/spatial_sim_data/images_dispersal0.5
 close_kin_slim/spatial_sim_data/sspatial_parents_dispersal0.5
 close_kin_slim/spatial_sim_data/pop_sizes_test
 close_kin_slim/spatial_sim_data/images_test
+replicate_conn/bearded_seals/bearded_seal_metadata/
+replicate_conn/bearded_seals/bearded_seal_parents/
+replicate_conn/bearded_seals/bearded_seal_popsizes/
+*.csv

@@ -8,17 +8,19 @@ import pandas as pd
 from PIL import Image, ImageDraw
 rng = np.random.default_rng()
 
-# R0, rep
+# R0, rep, bias
 R0 = sys.argv[1]
 rep = sys.argv[2]
+bias = float(sys.argv[3])
+max_bias = float(sys.argv[4])
 # Get the parents file path from the command line
-parents_file = sys.argv[3]
-popsize_file = sys.argv[4]
+parents_file = sys.argv[5]
+popsize_file = sys.argv[6]
 # Output files
-spaghetti_out = sys.argv[5]
-sampling_out = sys.argv[6]
-intensity_out = sys.argv[7]
-metadata_out = sys.argv[8]
+spaghetti_out = sys.argv[7]
+sampling_out = sys.argv[8]
+intensity_out = sys.argv[9]
+metadata_out = sys.argv[10]
 
 # Parents of all dead individuals
 parents = pd.read_csv(parents_file)
@@ -102,7 +104,7 @@ def plot_samples(sample_parents, image_w, image_h, max_width, max_height):
         img2.point((x*w/max_width, y*h/max_height), fill = "white")
     return(sampling)
 
-def plot_intensity(sampling_intensity, image_w, image_h):
+def plot_intensity(sampling_intensity, image_w, image_h, max_int = max_bias):
     w, h = image_w, image_h
     intensity = Image.new("L", (w, h))
     img3 = ImageDraw.Draw(intensity)
@@ -113,7 +115,6 @@ def plot_intensity(sampling_intensity, image_w, image_h):
     dx = w/x_cells
     dy = h/y_cells
     # Maximum sampling intensity (will be 255 or all white)
-    max_int = np.max(sampling_intensity)
     # Plot sampling intensity
     for ix, iy in np.ndindex(sampling_intensity.shape):
         xmin = dx*ix
@@ -125,8 +126,8 @@ def plot_intensity(sampling_intensity, image_w, image_h):
         img3.rectangle([(xmin, ymin), (xmax, ymax)], fill = rel_intensity, outline=None, width=0)
     return(intensity)
 
-# Define sampling intensity grid with one side twice as likely to be sampled as the other
-sampling_intensity =  np.ones((10,10))*np.linspace(1, 5, 10)
+# Define sampling intensity grid with one side [bias] times as likely to be sampled as the other
+sampling_intensity =  np.repeat([np.linspace(1, bias, 10)], 10, axis = 0)
 
 # Sample according to the grid and return realized sampling size and sampled individuals
 ss, sample_rows = sample_grid(parents, sampling_intensity, 1000, 10, 10)
@@ -144,4 +145,4 @@ intensity.save(intensity_out)
 n = np.sum(ss)
 
 with open(metadata_out, "w") as f:
-    f.write(str(R0) + "," + str(rep) + ","+ str(N) + "," + str(n) + "\n")
+    f.write(str(R0) + "," + str(rep) + ","+ str(bias) + ","+ str(N) + "," + str(n) + "," + str(npairs) + "\n")
