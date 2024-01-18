@@ -13,14 +13,15 @@ R0 = sys.argv[1]
 rep = sys.argv[2]
 bias = float(sys.argv[3])
 max_bias = float(sys.argv[4])
+max_n = float(sys.argv[5])
 # Get the parents file path from the command line
-parents_file = sys.argv[5]
-popsize_file = sys.argv[6]
+parents_file = sys.argv[6]
+popsize_file = sys.argv[7]
 # Output files
-spaghetti_out = sys.argv[7]
-sampling_out = sys.argv[8]
-intensity_out = sys.argv[9]
-metadata_out = sys.argv[10]
+spaghetti_out = sys.argv[8]
+sampling_out = sys.argv[9]
+intensity_out = sys.argv[10]
+metadata_out = sys.argv[11]
 
 # Parents of all dead individuals
 parents = pd.read_csv(parents_file)
@@ -130,7 +131,7 @@ def plot_intensity(sampling_intensity, image_w, image_h, max_int = max_bias):
 sampling_intensity =  np.repeat([np.linspace(1, bias, 10)], 10, axis = 0)
 
 # Sample according to the grid and return realized sampling size and sampled individuals
-ss, sample_rows = sample_grid(parents, sampling_intensity, 1000, 10, 10)
+ss, sample_rows = sample_grid(parents, sampling_intensity, max_n, 10, 10)
 sample = parents.iloc[sample_rows]
 
 # Plot spaghetti, locations of samples, and sampling intensity
