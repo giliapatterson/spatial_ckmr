@@ -1,5 +1,5 @@
 import numpy as np
-R0s = np.linspace(8, 12, 10)
+R0s = np.linspace(8, 12, 11)
 reps = np.arange(1, 11)
 max_int = 30
 biases = np.linspace(1, max_int, 3)
