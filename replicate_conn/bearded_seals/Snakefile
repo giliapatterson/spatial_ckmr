@@ -1,6 +1,7 @@
 import numpy as np
-R0s = np.linspace(8, 12, 11)
-reps = np.arange(1, 11)
+Ns = np.linspace(5000, 20000, 51)
+R0s = np.around(np.log(Ns), decimals = 2)
+reps = np.arange(1, 31)
 max_int = 30
 biases = np.linspace(1, max_int, 3)
 max_n = 2000
