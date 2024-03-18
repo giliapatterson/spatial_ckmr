@@ -7,4 +7,7 @@ labels <- read.csv("bearded_seals/labels.csv")
 
 ggplot(labels, aes(x = N_avg, y = npairs, color = factor(bias))) +
   geom_point() +
-  geom_smooth()
+  geom_smooth() +
+  xlab("Average N") +
+  ylab("Number of POPs") +
+  scale_color_discrete(name = "Sampling bias")

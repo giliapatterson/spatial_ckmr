@@ -4,7 +4,6 @@
 *.Rhistory
 close_kin_slim/spatial_sim_data/images/
 close_kin_slim/spatial_sim_data/images_bias/
-replicate_conn/bearded_seal_images
 close_kin_slim/spatial_sim_data/spatial_parents/
 replicate_conn/bearded_seal_parents
 replicate_conn/bearded_seal_popsizes
@@ -31,4 +30,5 @@ close_kin_slim/spatial_sim_data/images_test
 replicate_conn/bearded_seals/bearded_seal_metadata/
 replicate_conn/bearded_seals/bearded_seal_parents/
 replicate_conn/bearded_seals/bearded_seal_popsizes/
+replicate_conn/bearded_seals/bearded_seal_images
 *.csv
