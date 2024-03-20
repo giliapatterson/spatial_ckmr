@@ -5,9 +5,22 @@ ggplot(seal_parents, aes(x = age)) +
 
 labels <- read.csv("bearded_seals/labels.csv")
 
-ggplot(labels, aes(x = N_avg, y = npairs, color = factor(bias))) +
+ggplot(labels, aes(x = npairs, y = N_avg, color = factor(bias))) +
   geom_point() +
   geom_smooth() +
   xlab("Average N") +
   ylab("Number of POPs") +
   scale_color_discrete(name = "Sampling bias")
+
+ggplot(labels, aes(x = N_avg, y = npairs)) +
+  geom_point() +
+  xlab("Average N") +
+  ylab("Number of POPs") +
+  facet_wrap(~bias)
+
+ggplot(labels, aes(x = N_avg, y = n)) +
+  geom_point() +
+  xlab("Average N") +
+  ylab("Number of POPs") +
+  facet_wrap(~bias)
+
