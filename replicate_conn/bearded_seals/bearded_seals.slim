@@ -28,7 +28,7 @@ initialize() {
    	defineConstant("NOFFSPRING", 1);
    }
    
-   writeFile(OUTPUT, "individual,parent1,parent2,age,sampling_time,x,y");
+   writeFile(OUTPUT, "individual,parent1,parent2,age,sex,sampling_time,x,y");
    writeFile(POPSIZE_FILE, "sampling_time,N");
    
    // Parameters for survival model
@@ -112,7 +112,7 @@ early() {
 	 // Write dead individuals and their ages, parents, and sampling times to file
     if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
 		for(ind in dead_inds){
-			writeFile(OUTPUT, paste(c(ind.pedigreeID, ind.pedigreeParentIDs, ind.age, community.tick), sep = ",") + "," + paste(c(ind.x, ind.y), sep = ","), append = T);
+			writeFile(OUTPUT, paste(c(ind.pedigreeID, ind.pedigreeParentIDs, ind.age, ind.sex, community.tick), sep = ",") + "," + paste(c(ind.x, ind.y), sep = ","), append = T);
 		}
 	}
 }
@@ -128,8 +128,8 @@ late()
 	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
 		writeFile(POPSIZE_FILE, paste(c(community.tick, p1.individualCount), sep = ","), append = T);
 	}
-	//print("Late pop size");
-	//print(length(p1.individuals));
+	print("Late pop size");
+	print(length(p1.individuals));
 }
 
 60 late() {
