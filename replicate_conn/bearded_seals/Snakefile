@@ -1,7 +1,9 @@
 import numpy as np
 Ns = np.linspace(5000, 20000, 51)
+#Ns = np.array([5000])
 R0s = np.around(np.log(Ns), decimals = 2)
 reps = np.arange(1, 51)
+#reps = np.array([1, 2])
 max_int = 30
 biases = np.linspace(1, max_int, 3)
 max_n = 2000
@@ -19,7 +21,7 @@ popsize_file_pattern = "bearded_seal_popsizes/popsizes_{R0}_{rep}.csv"
 popsizes = expand(popsize_file_pattern, R0 = R0s, rep = reps)
 # Output images
 pattern = "bearded_seal_images/{type}_{R0}_{rep}_{bias}_{n}.png"
-types = ["spaghetti", "samples", "sampling_intensity"]
+types = ["spaghetti_pops", "spaghetti_sibs", "samples", "sampling_intensity"]
 image_files = expand(pattern, type = types, R0 = R0s, rep = reps, bias = biases, n = max_n)
 metadata_files = expand("bearded_seal_metadata/meta_{R0}_{rep}_{bias}_{n}.csv", R0 = R0s, rep = reps, bias = biases, n = max_n)
 labels_file = "labels.csv"
@@ -45,7 +47,8 @@ rule plot:
         parent_file_pattern,
         popsize_file_pattern
     output:
-        "bearded_seal_images/spaghetti_{R0}_{rep}_{bias}_{n}.png",
+        "bearded_seal_images/spaghetti_pops_{R0}_{rep}_{bias}_{n}.png",
+        "bearded_seal_images/spaghetti_sibs_{R0}_{rep}_{bias}_{n}.png",
         "bearded_seal_images/samples_{R0}_{rep}_{bias}_{n}.png",
         "bearded_seal_images/sampling_intensity_{R0}_{rep}_{bias}_{n}.png",
         "bearded_seal_metadata/meta_{R0}_{rep}_{bias}_{n}.csv"
@@ -59,6 +62,6 @@ rule labels:
         labels_file
     shell:
         """
-        echo 'R0,rep,bias,N_avg,n,npairs' >> {output}
+        echo 'R0,rep,bias,N_avg,n,npops,nsibs' >> {output}
         cat {input}  >> {output}
         """
