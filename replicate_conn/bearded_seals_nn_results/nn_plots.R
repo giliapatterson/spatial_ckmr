@@ -1,6 +1,6 @@
 library(tidyverse)
 theme_set(theme_gray(base_size = 22))
-seals_seals <- read.csv("bearded_seals_nn_results.csv")
+seals_seals <- read.csv("model_pops_sibs.csv")
 names(seals_seals)
 
 ggplot(seals_seals, aes(x = truth, y = bearded_nn_pred, color = bias)) +

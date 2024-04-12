@@ -1,5 +1,5 @@
 library(tidyverse)
-
+theme_set(theme_gray(base_size = 22))
 # Constants and survival probability from Conn et al. code
 # https://github.com/pconn/CKMR/blob/master/R/simulate_spatial.R
 a.haz = exp(-2.904)
@@ -12,14 +12,17 @@ phi_RAW = function(a.haz,b.haz,c.haz,haz.mult,Age){
 # Plot survival, breeding, and mating probabilities
 ages = seq(1, 38, 0.1)
 p_breed = 1/((1 + exp(-1.264*(ages-5.424))))
-S_conn =  phi_RAW(a.haz, b.haz, c.haz, 1, ages)
+S_conn =  phi_RAW(a.haz, b.haz, c.haz, 1.111, ages)
 p_mate = 1/((1+exp(-1.868*(ages - 6.5))))
 
 parameters <- data.frame(age = ages, p_breed = p_breed, p_mate = p_mate, S_conn = S_conn)
 parameters <- pivot_longer(parameters, cols = c(p_breed, p_mate, S_conn))
 ggplot(parameters, aes(x = age, y = value, color = name)) +
   geom_line() +
-  ylim(0, 1)
+  ylim(0, 1) +
+  scale_color_discrete(name = "Parameter", labels = c("Breeding", "Mating", "Survival")) +
+  xlab("Age") +
+  ylab("Probability")
 
 ## Figure out the multiplier that gives constant population size(C in the paper, haz.mult in Conn code) ##
 
