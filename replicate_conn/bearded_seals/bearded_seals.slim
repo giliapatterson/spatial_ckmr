@@ -107,7 +107,7 @@ early() {
     //survival[ages == 38] = 0;
     alive = runif(length(inds)) < survival;
     dead = !alive;
-	 inds.fitnessScaling = alive;
+	 inds.fitnessScaling = asFloat(alive);
 	 dead_inds = p1.individuals[dead];
 	 // Write dead individuals and their ages, parents, and sampling times to file
     if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
