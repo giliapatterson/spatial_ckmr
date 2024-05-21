@@ -19,7 +19,7 @@ initialize() {
    }
    
    if (!exists("R0")) {
-   	defineConstant("R0", 9);
+   	defineConstant("R0", 8);
    }
    if (!exists("SIGMA")) {
    	defineConstant("SIGMA", 1);
@@ -94,7 +94,8 @@ reproduction(NULL, "F") {
    p1.setSpatialBounds(c(0, 0, 10, 10));
    
    mapImage = Image("k_map.png");
-   p1.defineSpatialMap("k", "xy", mapImage.floatK, valueRange=c(0, 1.0), colors=c("black", "white"));
+   k_map = p1.defineSpatialMap("k", "xy", mapImage.floatK, valueRange=c(0, 1.0), colors=c("black", "white"));
+   defineConstant("K_MAP", k_map);
    
    // Initial ages
    stable_age_distribution = c(0.206, 0.128, 0.105, 0.089, 0.076, 0.065, 0.056, 0.048, 0.041, 
@@ -112,12 +113,12 @@ early() {
     inds = p1.individuals;
     ks = p1.spatialMapValue("k", inds.spatialPosition);
     ages = inds.age;
-    survival = exp(-C*(ALPHA/ks)*((ETA1*ages)^ETA2 + (ETA1*ages)^(1/ETA2) + ETA3 - (ETA1*(ages-1))^ETA2 - (ETA1*(ages-1))^(1/ETA2)));
+    survival = exp(-C*((ETA1*ages)^ETA2 + (ETA1*ages)^(1/ETA2) + ETA3 - (ETA1*(ages-1))^ETA2 - (ETA1*(ages-1))^(1/ETA2)));
     // Maximum age is 38
     //survival[ages == 38] = 0;
     alive = runif(length(inds)) < survival;
     dead = !alive;
-	 inds.fitnessScaling = alive;
+	 inds.fitnessScaling = asFloat(alive);
 	 dead_inds = p1.individuals[dead];
 	 // Write dead individuals and their ages, parents, and sampling times to file
     if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
@@ -129,11 +130,12 @@ early() {
 
 late()
 {
+
 	// Dispersal
 	for (ind in p1.individuals)
 	{
-		newPos = ind.spatialPosition + rnorm(2, 0, SIGMA);
-		ind.setSpatialPosition(p1.pointReflected(newPos));
+		newPos = K_MAP.sampleImprovedNearbyPoint(ind.spatialPosition, 10.0, "n", SIGMA);
+		ind.setSpatialPosition(newPos);
 	}
 	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
 		writeFile(POPSIZE_FILE, paste(c(community.tick, p1.individualCount), sep = ","), append = T);
