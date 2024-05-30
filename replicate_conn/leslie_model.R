@@ -77,6 +77,8 @@ C_1 = C_vals[C_i]
 M_1 = transition_matrix(a.haz, b.haz, c.haz, C_1, yearly_ages)
 print(eigen(M_1)$values[1]) # Should be close to 1
 
+print(M_1)
+
 # Get stable age distribution for C_1
 stable_age_distribution = as.numeric(eigen(M_1)$vectors[,1]/sum(eigen(M_1)$vectors[,1]))
 dput(round(stable_age_distribution, 3))
