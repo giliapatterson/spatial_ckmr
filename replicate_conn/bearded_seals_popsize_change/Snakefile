@@ -4,14 +4,14 @@
 import numpy as np
 
 # Population sizes to simulate
-#Ns = np.linspace(5000, 20000, 51)
-Ns = np.array([5000])
+Ns = np.linspace(5000, 20000, 51)
+#Ns = np.array([5000])
 # Parameter R0 that corresponds to each N
 R0s = np.around(np.log(Ns), decimals = 2)
 
 # Number of times to run each simulation
-#reps = np.arange(1, 51)
-reps = np.arange(1, 2)
+reps = np.arange(1, 51)
+#reps = np.arange(1, 2)
 
 # Population size declines/increases to simulate
 # Values less than 1 mean decrease, >1 increase
@@ -20,8 +20,8 @@ survmults = np.around(np.linspace(0.99, 1.01, 3), decimals = 3)
 # Maximum bias in sampling intensity (most intensely sampled side of the map/least intensely sampled side of the map)
 max_int = 30
 # Biases to simulate
-#biases = np.linspace(1, max_int, 3)
-biases = np.array([1])
+biases = np.linspace(1, max_int, 3)
+#biases = np.array([1])
 
 # Sample size for each simulation
 max_n = 2000
@@ -92,6 +92,6 @@ rule labels:
         labels_file
     shell:
         """
-        echo 'R0,surv_mult,rep,bias,N_avg,n,npops,nsibs' >> {output}
+        echo 'R0,surv_mult,rep,bias,N_avg,N_final,n,npops,nsibs' >> {output}
         cat {input}  >> {output}
         """

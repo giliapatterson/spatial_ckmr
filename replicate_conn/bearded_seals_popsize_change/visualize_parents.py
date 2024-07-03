@@ -46,6 +46,7 @@ parents = pd.read_csv(parents_file)
 popsize = pd.read_csv(popsize_file)
 # Calculate average population size
 N = np.mean(popsize.loc[:,'N'])
+N_final = popsize.loc[:, 'N'].values[-1]
 
 
 # Sample from the individuals according to a sampling intensity grid. 
@@ -233,4 +234,4 @@ intensity.save(intensity_out)
 n = np.sum(ss)
 
 with open(metadata_out, "w") as f:
-    f.write(str(R0) + "," + str(surv_mult) + "," + str(rep) + ","+ str(bias) + ","+ str(N) + "," + str(n) + "," + str(npops) + "," + str(nsibs) + "\n")
+    f.write(str(R0) + "," + str(surv_mult) + "," + str(rep) + ","+ str(bias) + ","+ str(N) + "," + str(N_final) + ","+ str(n) + "," + str(npops) + "," + str(nsibs) + "\n")
