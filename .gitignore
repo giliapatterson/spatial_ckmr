@@ -18,7 +18,6 @@ close_kin_slim/spatial_sim_data/*.txt
 close_kin_slim/spatial_sim_data/*.csv
 close_kin_slim/*.csv
 replicate_conn/*.csv
-*.png
 *.pt
 close_kin_slim/spatial_sim_data/pop_sizes
 close_kin_slim/spatial_sim_data/pop_sizes_bias
