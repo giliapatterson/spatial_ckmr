@@ -19,19 +19,25 @@ initialize() {
    }
    
    if (!exists("N0")) {
-   	defineConstant("N0", 60);
+   	defineConstant("N0", 500);
    }
    if (!exists("SIGMA")) {
    	defineConstant("SIGMA", 1);
    }
    if (!exists("NOFFSPRING")) {
-   	defineConstant("NOFFSPRING", 2);
+   	defineConstant("NOFFSPRING", 1);
+   }
+   if (!exists("FAGEREPRO")) {
+   	defineConstant("FAGEREPRO", 25);
+   }
+   if (!exists("MAGEREPRO")) {
+   	defineConstant("MAGEREPRO", 25);
    }
    
  
 	
 	// spatial mate choice
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=10, sexSegregation = "FM");
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=1, sexSegregation = "FM");
 	
 	// Survival from life table
 	survival = readCSV("survival.csv");
@@ -50,28 +56,40 @@ initialize() {
 	i1.evaluate(p1);
 }
 
-reproduction(NULL, "F") {
+reproduction(p1, "F") {
 	// First check if female breeds	
-	if(individual.age > 30){
-		years_since_last_rep = community.tick - individual.tag;
-		if (years_since_last_rep > 2) {
-			potential_mates = i1.nearestInteractingNeighbors(individual, p1.size());
+	if(individual.age > FAGEREPRO){
+	//print("Female old enough to have a baby!");
+		// Year female last became pregnant
+		years_since_last_rep = community.tick - individual.getValue("last_rep");
+		if (years_since_last_rep > 6) {
+		print("Fertile female");
+		// Figure out gestation, is age conception? Offspring alive?
+			//potential_mates = i1.nearestInteractingNeighbors(individual, p1.size());
+			potential_mates = p1.subsetIndividuals(sex = "M");
 	   	if (potential_mates.size()){
    			m_a = potential_mates.age;
-				p_mate = asInteger(m_a > 30);
-   			mate = sample(potential_mates, size = 1, weights = p_mate);
-   			individual.tag = community.tick;
-   			for (i in 1:NOFFSPRING){
-   				offspring1 = p1.addCrossed(individual, mate);
-   				pos = individual.spatialPosition;
-      			offspring1.setSpatialPosition(pos);
-      			if(offspring1.sex == "F"){
-      				offspring1.color = "pink";
-      				offspring1.tag = -2;
-      			}
-      			if(offspring1.sex == "M"){
-      				offspring1.color = "blue";
-      			}
+				p_mate = asInteger(m_a > MAGEREPRO);
+				if(sum(p_mate) > 0){
+					print("Mate found");
+	   			mate = sample(potential_mates, size = 1, weights = p_mate);
+	   			individual.tag = community.tick;
+	   			for (i in 1:NOFFSPRING){
+	   				// Generate an offspring and put it in p3 (the population of unborn individuals)
+	   				offspring1 = p3.addCrossed(individual, mate);
+	   				print("Pregnant");
+	   				// Assign offspring to mother
+	   				offspring1.setValue("mother", individual.pedigreeID);
+	   				pos = individual.spatialPosition;
+	      			offspring1.setSpatialPosition(pos);
+	      			if(offspring1.sex == "F"){
+	      				offspring1.color = "pink";
+	      				offspring1.setValue("last_rep", -6);
+	      			}
+	      			if(offspring1.sex == "M"){
+	      				offspring1.color = "blue";
+	      			}
+	      		}
       		}
    		}
 		}
@@ -82,34 +100,73 @@ reproduction(NULL, "F") {
 1 early() {
 	// Initial population
 	sim.addSubpop("p1", N0);
+	// Population of female groups
+	// Each "individual" is a group
+	ngroups = asInteger(N0/6);
+	sim.addSubpop("p2", ngroups);
+	
+	// Population of unborn individuals
+	sim.addSubpop("p3", 0);
    
    mapImage = Image("kibale.png");
    map = p1.defineSpatialMap("kibale", "xy", 1.0-mapImage.floatK, valueRange = c(0.0, 1.0), colors = c("white", "green"));
+   map2 = p2.defineSpatialMap("kibale2", "xy", 1.0-mapImage.floatK, valueRange = c(0.0, 1.0), colors = c("white", "green"));
+   map3 = p3.defineSpatialMap("kibale2", "xy", 1.0-mapImage.floatK, valueRange = c(0.0, 1.0), colors = c("white", "green"));
    defineConstant("KIBALE", map);
    
    // Initial ages
-   //age_distribution = rep(1, 76);
-   p1.individuals.age = rep(31, N0);
-   // random initial positions within the boundaries of kibale
-   for (ind in p1.individuals) {
+   ages = 0:60;
+   age_distribution = rep(1, 61);
+   p1.individuals.age = sample(ages, N0, replace = T, weights = age_distribution);
+   
+   // Groups have random initial positions within the boundaries of kibale
+   for (group in p2.individuals) {
    	// Generate new position uniformly
-   	pos = p1.pointUniform();
+   	pos = p2.pointUniform();
    	// Is position within Kibale's bounds?
 		inBounds = KIBALE.mapValue(pos) == 1.0;
+		while (!inBounds){
+			pos = p2.pointUniform();
+			inBounds = KIBALE.mapValue(pos) == 1.0;
+		}
+		group.setSpatialPosition(pos);
+   }
+   
+   // Females are assigned a group
+   // Last year female bred is set
+   females = p1.subsetIndividuals(sex = "F");
+	for (fem in females){
+		group = p2.sampleIndividuals(1);
+		fem.setValue("group", group.index);
+		fem.setSpatialPosition(group.spatialPosition);
+		fem.color = "pink";
+		// Last year individual bred
+		fem.setValue("last_rep" ,sample(-6:0, 1));
+	};
+	// Pre-puberty males are assigned a group
+	pre_puberty_males = p1.subsetIndividuals(sex = "M", maxAge = 11);
+	for (ind in pre_puberty_males){
+		group = p2.sampleIndividuals(1);
+		ind.setValue("group", group.index);
+		ind.setSpatialPosition(group.spatialPosition);
+		ind.color = "blue";
+		// Last year individual bred
+		ind.setValue("last_rep" ,sample(-2:0, 1));
+	};	
+   // Post-puberty (age 12) males are given a random location within kibale
+	post_puberty_males = p1.subsetIndividuals(sex = "M", minAge = 12);	
+	for (ind in post_puberty_males){
+		ind.color = "blue";		
+   		// Generate new position uniformly
+   		pos = p1.pointUniform();
+   		// Is position within Kibale's bounds?
+		inBounds = KIBALE.mapValue(pos) == 1.0;			
 		while (!inBounds){
 			pos = p1.pointUniform();
 			inBounds = KIBALE.mapValue(pos) == 1.0;
 		}
 		ind.setSpatialPosition(pos);
-		if (ind.sex == "F"){
-			ind.color = "pink";
-			// Last year individual bred
-			ind.tag =sample(-2:0, 1) ;		
-		}
-		if (ind.sex == "M"){
-			ind.color = "blue";		
-		}
-   }
+	};
 }
 early() {
     // Age-based mortality
@@ -118,21 +175,61 @@ early() {
     	alive = runif(1) < surv_prob;
     	ind.fitnessScaling = asFloat(alive);
     }
+    // Births
+    unborn = p3.individuals;
+    mother_ids = unborn.getValue("mother");
+
 }
 
 late()
 {
-	// Dispersal
-	for (ind in p1.individuals)
+	// Keep track of group locations and each individual has a group membership like milkweed example
+	// Could simulate movement once a day e.g. for loop with 365 steps
+	// Group dispersal
+	for (group in p2.individuals)
 	{
-		newPos = KIBALE.sampleImprovedNearbyPoint(ind.spatialPosition, 10.0, "n", SIGMA);
-		ind.setSpatialPosition(newPos);
+		// Generate new position uniformly
+   	pos = p2.pointUniform();
+   	// Is position within Kibale's bounds?
+		inBounds = KIBALE.mapValue(pos) == 1.0;
+		while (!inBounds){
+			pos = p2.pointUniform();
+			inBounds = KIBALE.mapValue(pos) == 1.0;
+		}
+		group.setSpatialPosition(pos);
 	}
+	// Post-puberty male dispersal
+	post_puberty_males = p1.subsetIndividuals(sex = "M", minAge = 12);	
+	for (ind in post_puberty_males){
+		ind.color = "blue";		
+   	// Generate new position uniformly
+   	pos = p1.pointUniform();
+   	// Is position within Kibale's bounds?
+		inBounds = KIBALE.mapValue(pos) == 1.0;			
+		while (!inBounds){
+			pos = p1.pointUniform();
+			inBounds = KIBALE.mapValue(pos) == 1.0;
+		}
+		ind.setSpatialPosition(pos);
+	}
+	// Females and pre_puberty_males assigned position of group
+	females = p1.subsetIndividuals(sex = "F");
+	pre_puberty_males = p1.subsetIndividuals(sex = "M", maxAge = 11);
+	for (ind in c(females, pre_puberty_males)){
+		group_i = ind.getValue("group");
+		ind.setSpatialPosition(p2.individuals[group_i].spatialPosition + rnorm(2, 0, 0.02));
+	};
+	
+	// Print and write output
 	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
 		writeFile(POPSIZE_FILE, paste(c(community.tick, p1.individualCount), sep = ","), append = T);
 	}
 	print("Late pop size");
 	print(length(p1.individuals));
+	print("Female ages");
+	print(p1.subsetIndividuals(sex = "F").age);
+	print("Male ages");
+	print(p1.subsetIndividuals(sex = "M").age);
 }
 
 60 late() {
