@@ -1,4 +1,5 @@
 import numpy as np
+np.bool = np.bool_
 from matplotlib import pyplot as plt
 from scipy import stats
 import sys
