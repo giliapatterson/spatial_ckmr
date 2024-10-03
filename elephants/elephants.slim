@@ -19,7 +19,7 @@ initialize() {
    }
    
    if (!exists("N0")) {
-   	defineConstant("N0", 500);
+   	defineConstant("N0", 1000);
    }
    if (!exists("SIGMA")) {
    	defineConstant("SIGMA", 1);
@@ -31,8 +31,9 @@ initialize() {
    	defineConstant("FAGEREPRO", 25);
    }
    if (!exists("MAGEREPRO")) {
-   	defineConstant("MAGEREPRO", 25);
+   	defineConstant("MAGEREPRO", 30);
    }
+  
    
  
 	
@@ -42,6 +43,10 @@ initialize() {
 	// Survival from life table
 	survival = readCSV("survival.csv");
 	defineConstant("SURVIVAL", survival);
+	// Increase survival probabilities by raising to a power less than 1
+	if (!exists("SURVIVAL_POWER")) {
+   	defineConstant("SURVIVAL_POWER", 0.1);
+   } 
 	
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	m1.convertToSubstitution = T;
@@ -57,31 +62,25 @@ initialize() {
 }
 
 reproduction(p1, "F") {
-	// First check if female breeds	
+	// First check if female is old enough to breed	
 	if(individual.age > FAGEREPRO){
-	//print("Female old enough to have a baby!");
-		// Year female last became pregnant
+		// Years since female last became pregnant
+		// Could also check if offspring is alive
 		years_since_last_rep = community.tick - individual.getValue("last_rep");
 		if (years_since_last_rep > 6) {
-		print("Fertile female");
-		// Figure out gestation, is age conception? Offspring alive?
 			//potential_mates = i1.nearestInteractingNeighbors(individual, p1.size());
 			potential_mates = p1.subsetIndividuals(sex = "M");
 	   	if (potential_mates.size()){
    			m_a = potential_mates.age;
 				p_mate = asInteger(m_a > MAGEREPRO);
 				if(sum(p_mate) > 0){
-					print("Mate found");
 	   			mate = sample(potential_mates, size = 1, weights = p_mate);
-	   			individual.tag = community.tick;
+	   			individual.setValue("last_rep", community.tick);
 	   			for (i in 1:NOFFSPRING){
 	   				// Generate an offspring and put it in p3 (the population of unborn individuals)
 	   				offspring1 = p3.addCrossed(individual, mate);
-	   				print("Pregnant");
 	   				// Assign offspring to mother
 	   				offspring1.setValue("mother", individual.pedigreeID);
-	   				pos = individual.spatialPosition;
-	      			offspring1.setSpatialPosition(pos);
 	      			if(offspring1.sex == "F"){
 	      				offspring1.color = "pink";
 	      				offspring1.setValue("last_rep", -6);
@@ -137,7 +136,7 @@ reproduction(p1, "F") {
    females = p1.subsetIndividuals(sex = "F");
 	for (fem in females){
 		group = p2.sampleIndividuals(1);
-		fem.setValue("group", group.index);
+		fem.setValue("group", group.pedigreeID);
 		fem.setSpatialPosition(group.spatialPosition);
 		fem.color = "pink";
 		// Last year individual bred
@@ -147,11 +146,9 @@ reproduction(p1, "F") {
 	pre_puberty_males = p1.subsetIndividuals(sex = "M", maxAge = 11);
 	for (ind in pre_puberty_males){
 		group = p2.sampleIndividuals(1);
-		ind.setValue("group", group.index);
+		ind.setValue("group", group.pedigreeID);
 		ind.setSpatialPosition(group.spatialPosition);
 		ind.color = "blue";
-		// Last year individual bred
-		ind.setValue("last_rep" ,sample(-2:0, 1));
 	};	
    // Post-puberty (age 12) males are given a random location within kibale
 	post_puberty_males = p1.subsetIndividuals(sex = "M", minAge = 12);	
@@ -171,20 +168,38 @@ reproduction(p1, "F") {
 early() {
     // Age-based mortality
     for (ind in p1.individuals){
-    	surv_prob = SURVIVAL.getValue(ind.sex)[ind.age];
+    	// Taking the square root to up survival
+    	surv_prob = SURVIVAL.getValue(ind.sex)[ind.age]^SURVIVAL_POWER;
     	alive = runif(1) < surv_prob;
     	ind.fitnessScaling = asFloat(alive);
     }
     // Births
     unborn = p3.individuals;
-    mother_ids = unborn.getValue("mother");
-
+    potential_births = unborn[unborn.age >=2];
+    if(potential_births.size()){
+    	// Loop through every potential birth
+    	for(fetus in potential_births){
+    		mother = sim.individualsWithPedigreeIDs(fetus.getValue("mother"),  p1);
+    		// If mother is alive, transfer to p1 and set age to 0
+    		// Set group to mother's group
+    		if(mother.size()){
+    			p1.takeMigrants(fetus);
+    			fetus.age = 0;
+				fetus.setValue("group", mother.getValue("group"));
+				fetus.setSpatialPosition(mother.spatialPosition);
+    		}
+    		// If mother is dead, fetus dies
+    		else{
+    			fetus.fitnessScaling = 0.0;
+    		}
+    	}
+	 }
 }
 
 late()
 {
-	// Keep track of group locations and each individual has a group membership like milkweed example
 	// Could simulate movement once a day e.g. for loop with 365 steps
+	
 	// Group dispersal
 	for (group in p2.individuals)
 	{
@@ -217,21 +232,24 @@ late()
 	pre_puberty_males = p1.subsetIndividuals(sex = "M", maxAge = 11);
 	for (ind in c(females, pre_puberty_males)){
 		group_i = ind.getValue("group");
-		ind.setSpatialPosition(p2.individuals[group_i].spatialPosition + rnorm(2, 0, 0.02));
+		ind.setSpatialPosition(sim.individualsWithPedigreeIDs(group_i, p2).spatialPosition);// + rnorm(2, 0, 0.02));
 	};
 	
 	// Print and write output
-	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
-		writeFile(POPSIZE_FILE, paste(c(community.tick, p1.individualCount), sep = ","), append = T);
-	}
+//	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
+//		writeFile(POPSIZE_FILE, paste(c(community.tick, p1.individualCount), sep = ","), append = T);
+//	}
 	print("Late pop size");
 	print(length(p1.individuals));
-	print("Female ages");
-	print(p1.subsetIndividuals(sex = "F").age);
-	print("Male ages");
-	print(p1.subsetIndividuals(sex = "M").age);
+	print("Number of groups with individuals");
+	groups = unique(p1.individuals.getValue("group"));
+	print(length(groups));
+	print("Group sizes");
+	for(group in groups){
+		
+	}
 }
 
-60 late() {
+10000 late() {
 	sim.simulationFinished();
 }
