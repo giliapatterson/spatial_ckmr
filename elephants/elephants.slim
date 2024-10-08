@@ -33,12 +33,22 @@ initialize() {
    if (!exists("MAGEREPRO")) {
    	defineConstant("MAGEREPRO", 30);
    }
-  
+   // Average number of adults in a group
+   if (!exists("AVG_GROUP_SIZE")) {
+   	defineConstant("AVG_GROUP_SIZE", 6);
+   }
+   // Age at which individuals can leave their maternal group
+   if (!exists("MATURITY_AGE")) {
+   	defineConstant("MATURITY_AGE", 15);
+   }
    
  
 	
 	// spatial mate choice
 	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=1, sexSegregation = "FM");
+	
+	// Interaction function that finds nearest individuals within a radius
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=1);
 	
 	// Survival from life table
 	survival = readCSV("survival.csv");
@@ -47,6 +57,7 @@ initialize() {
 	if (!exists("SURVIVAL_POWER")) {
    	defineConstant("SURVIVAL_POWER", 0.1);
    } 
+   
 	
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	m1.convertToSubstitution = T;
@@ -95,13 +106,25 @@ reproduction(p1, "F") {
 	}	
 }
 
+reproduction(p2){
+	members = p1.individuals[p1.individuals.getValue("group") == individual.pedigreeID];
+	group_size = length(members);
+	if(runif(1) < 1-exp(-group_size/AVG_GROUP_SIZE)){
+		new_group = p2.addCloned(individual);
+		// Change groups so parents follow groups and offspring follow parents
+		new_members = sample(members, asInteger(group_size/2));
+		new_members.setValue("group", new_group.pedigreeID);
+		new_group.setSpatialPosition(individual.spatialPosition);
+	}
+}
+
 
 1 early() {
 	// Initial population
 	sim.addSubpop("p1", N0);
 	// Population of female groups
 	// Each "individual" is a group
-	ngroups = asInteger(N0/6);
+	ngroups = asInteger(N0/AVG_GROUP_SIZE);
 	sim.addSubpop("p2", ngroups);
 	
 	// Population of unborn individuals
@@ -142,17 +165,20 @@ reproduction(p1, "F") {
 		// Last year individual bred
 		fem.setValue("last_rep" ,sample(-6:0, 1));
 	};
-	// Pre-puberty males are assigned a group
-	pre_puberty_males = p1.subsetIndividuals(sex = "M", maxAge = 11);
-	for (ind in pre_puberty_males){
+	
+	// Juvenile males are assigned a group
+	juvenile_males = p1.subsetIndividuals(sex = "M", maxAge = MATURITY_AGE - 1);
+	for (ind in juvenile_males){
 		group = p2.sampleIndividuals(1);
 		ind.setValue("group", group.pedigreeID);
 		ind.setSpatialPosition(group.spatialPosition);
 		ind.color = "blue";
 	};	
-   // Post-puberty (age 12) males are given a random location within kibale
-	post_puberty_males = p1.subsetIndividuals(sex = "M", minAge = 12);	
-	for (ind in post_puberty_males){
+   // Adult males are given a random location within kibale
+   // Group is set to "none"
+	adult_males = p1.subsetIndividuals(sex = "M", minAge = MATURITY_AGE);	
+	for (ind in adult_males){
+		ind.setValue("group", "none");
 		ind.color = "blue";		
    		// Generate new position uniformly
    		pos = p1.pointUniform();
@@ -166,6 +192,8 @@ reproduction(p1, "F") {
 	};
 }
 early() {
+	i2.evaluate(p2);
+
     // Age-based mortality
     for (ind in p1.individuals){
     	// Taking the square root to up survival
@@ -173,6 +201,29 @@ early() {
     	alive = runif(1) < surv_prob;
     	ind.fitnessScaling = asFloat(alive);
     }
+    // Compute group size for everybody first and store as a property
+    for (group in p2.individuals){
+    	members = p1.individuals[p1.individuals.getValue("group") == group.pedigreeID];
+	 	group_size = length(members);
+	 	group.setValue("group_size", group_size);
+    } 
+    // Merge small groups into neighboring groups
+    small_groups = p2.individuals[p2.individuals.getValue("group_size") <= 3];
+    for (group in small_groups){
+	 	neighbors = i2.nearestNeighbors(group);
+	 	if(size(neighbors) > 0){
+			neighbor_sizes = neighbors.getValue("group_size");
+			new_group = sample(neighbors, 1, weights = 1/group_size);
+			members = p1.individuals[p1.individuals.getValue("group") == group.pedigreeID];
+			members.setValue("group", new_group.pedigreeID);
+			old_size = new_group.getValue("group_size");
+			new_group.setValue("group_size", old_size + group.getValue("group_size"));
+			group.setValue("group_size", 0);
+	 	}
+	 }
+	 // Eliminate empty groups
+    p2.individuals.fitnessScaling = asFloat(p2.individuals.getValue("group_size") != 0);
+    
     // Births
     unborn = p3.individuals;
     potential_births = unborn[unborn.age >=2];
@@ -185,7 +236,7 @@ early() {
     		if(mother.size()){
     			p1.takeMigrants(fetus);
     			fetus.age = 0;
-				fetus.setValue("group", mother.getValue("group"));
+				fetus.setValue("group", "juvenile");
 				fetus.setSpatialPosition(mother.spatialPosition);
     		}
     		// If mother is dead, fetus dies
@@ -199,7 +250,6 @@ early() {
 late()
 {
 	// Could simulate movement once a day e.g. for loop with 365 steps
-	
 	// Group dispersal
 	for (group in p2.individuals)
 	{
@@ -213,10 +263,75 @@ late()
 		}
 		group.setSpatialPosition(pos);
 	}
+	
+	// Move individuals around
+	for (ind in p1.individuals){
+		group = ind.getValue("group");
+		// Adult females follow group
+		if(isNULL(group)){
+			print("Error: Individual doesn't have a group");	
+		}
+		if(group != "none" & group != "juvenile"){
+			ind.setSpatialPosition(sim.individualsWithPedigreeIDs(group).spatialPosition+ rnorm(2, 0, 0.02));
+		}
+		// Juveniles follow mother or closest relative
+		if(group == "juvenile"){
+			mother = sim.individualsWithPedigreeIDs(ind.getValue("mother"), p1);
+			//print(mother);
+			// When mother is alive
+			if(mother.size()){
+				ind.setSpatialPosition(mother.spatialPosition + rnorm(2, 0, 0.02));
+				// If juvenile has reached maturity, update group
+				if (ind.age >= MATURITY_AGE){
+					if(ind.sex == "F"){
+						ind.setValue("group", mother.getValue("group"));
+					}
+					else{
+						ind.setValue("group", "none");
+					}
+				}
+			}
+			// When mother is not alive, assign to a group with close female relative
+			else{
+				// Choose a random adult female with probability proportional to relatedness
+				// Plus 1 in minAge is because group membership of females that became adults this year
+				// haven't necessarily been updated
+				adult_females = p1.subsetIndividuals(exclude = ind, sex = "F", minAge = MATURITY_AGE + 1);
+				// Add a small number to relatedness to solve the problem when no related females are alive
+				relative = sample(adult_females, 1, weights = ind.relatedness(adult_females) + 0.001);
+				ind.setSpatialPosition(relative.spatialPosition + rnorm(2, 0, 0.02));
+				// If juvenile has reached maturity, update group
+				if (ind.age >= MATURITY_AGE){
+					if(ind.sex == "F"){
+						ind.setValue("group", relative.getValue("group"));
+					}
+					else{
+						ind.setValue("group", "none");
+					}
+				}
+			}
+		}
+		// Individuals without a group (adult males) move around randomly
+		if(group == "none"){
+			// Generate new position uniformly
+   		pos = p1.pointUniform();
+   		// Is position within Kibale's bounds?
+			inBounds = KIBALE.mapValue(pos) == 1.0;			
+			while (!inBounds){
+				pos = p1.pointUniform();
+				inBounds = KIBALE.mapValue(pos) == 1.0;
+			}
+			ind.setSpatialPosition(pos);
+		}
+	};
+	
+	
+	
 	// Post-puberty male dispersal
-	post_puberty_males = p1.subsetIndividuals(sex = "M", minAge = 12);	
-	for (ind in post_puberty_males){
-		ind.color = "blue";		
+	adult_males = p1.subsetIndividuals(sex = "M", minAge = MATURITY_AGE);	
+	for (ind in adult_males){
+		ind.color = "blue";
+		ind.setValue("group", "none");		
    	// Generate new position uniformly
    	pos = p1.pointUniform();
    	// Is position within Kibale's bounds?
@@ -227,13 +342,7 @@ late()
 		}
 		ind.setSpatialPosition(pos);
 	}
-	// Females and pre_puberty_males assigned position of group
-	females = p1.subsetIndividuals(sex = "F");
-	pre_puberty_males = p1.subsetIndividuals(sex = "M", maxAge = 11);
-	for (ind in c(females, pre_puberty_males)){
-		group_i = ind.getValue("group");
-		ind.setSpatialPosition(sim.individualsWithPedigreeIDs(group_i, p2).spatialPosition);// + rnorm(2, 0, 0.02));
-	};
+	
 	
 	// Print and write output
 //	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
@@ -244,10 +353,13 @@ late()
 	print("Number of groups with individuals");
 	groups = unique(p1.individuals.getValue("group"));
 	print(length(groups));
-	print("Group sizes");
+	print("Average group size");
+	total_group_size = 0;
 	for(group in groups){
-		
+		members = p1.individuals[p1.individuals.getValue("group") == group];
+		total_group_size = total_group_size + length(members);
 	}
+	print(total_group_size/length(groups));
 }
 
 10000 late() {
