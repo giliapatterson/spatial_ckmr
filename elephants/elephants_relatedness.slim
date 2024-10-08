@@ -1,0 +1,211 @@
+initialize() {
+	initializeSLiMModelType("nonWF");
+
+	initializeSLiMOptions(keepPedigrees=T, dimensionality="xy");
+
+	initializeSex("A");
+	
+	if (!exists("OUTPUT")) { 
+      defineConstant("OUTPUT", "elephant_parents.csv"); 
+   }
+   if (!exists("POPSIZE_FILE")) { 
+      defineConstant("POPSIZE_FILE", "elephant_popsize.csv"); 
+   }
+	if (!exists("TICK_INTERVAL")) {
+   	defineConstant("TICK_INTERVAL", 1);
+   }
+   if (!exists("BURNIN")) {
+   	defineConstant("BURNIN", 40);
+   }
+   
+   if (!exists("N0")) {
+   	defineConstant("N0", 200);
+   }
+   if (!exists("SIGMA")) {
+   	defineConstant("SIGMA", 1);
+   }
+   if (!exists("NOFFSPRING")) {
+   	defineConstant("NOFFSPRING", 1);
+   }
+   if (!exists("FAGEREPRO")) {
+   	defineConstant("FAGEREPRO", 24);
+   }
+   if (!exists("MAGEREPRO")) {
+   	defineConstant("MAGEREPRO", 30);
+   }
+   if (!exists("AVG_GROUP_SIZE")) {
+   	defineConstant("AVG_GROUP_SIZE", 6);
+   }
+	
+	// spatial mate choice
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=1, sexSegregation = "FM");
+	
+	// Survival from life table
+	survival = readCSV("survival.csv");
+	defineConstant("SURVIVAL", survival);
+	// Increase survival probabilities
+	survival_power = 0.107;
+	SURVIVAL.setValue("F", survival.getValue("F")^survival_power);
+	SURVIVAL.setValue("M", survival.getValue("M")^survival_power);
+	
+	initializeMutationRate(1e-7);
+	initializeMutationType("m1", 0.5, "f", 0.0);
+	initializeGenomicElementType("g1", m1, 1.0);
+	initializeGenomicElement(g1, 0, 99999);
+	initializeRecombinationRate(1e-8);
+}
+
+2: first() {
+	i1.evaluate(p1);
+}
+
+reproduction(p1, "F") {
+	// First check if female is old enough to breed	
+	if(individual.age > FAGEREPRO){
+		// Years since female last became pregnant
+		// Could also check if offspring is alive
+		years_since_last_rep = community.tick - individual.getValue("last_rep");
+		if (years_since_last_rep > 6) {
+			//potential_mates = i1.nearestInteractingNeighbors(individual, p1.size());
+			potential_mates = p1.subsetIndividuals(sex = "M");
+	   	if (potential_mates.size()){
+   			m_a = potential_mates.age;
+				p_mate = asInteger(m_a > MAGEREPRO);
+				if(sum(p_mate) > 0){
+	   			mate = sample(potential_mates, size = 1, weights = p_mate);
+	   			individual.setValue("last_rep", community.tick);
+	   			for (i in 1:NOFFSPRING){
+	   				// Generate an offspring and put it in p2 (the population of unborn individuals)
+	   				offspring1 = p2.addCrossed(individual, mate);
+	   				// Assign offspring to mother
+	   				offspring1.setValue("mother", individual.pedigreeID);
+	      			if(offspring1.sex == "F"){
+	      				offspring1.color = "pink";
+	      				offspring1.setValue("last_rep", -6);
+	      			}
+	      			if(offspring1.sex == "M"){
+	      				offspring1.color = "blue";
+	      			}
+	      		}
+      		}
+   		}
+		}
+	}	
+}
+
+
+1 early() {
+	// Initial population
+	sim.addSubpop("p1", N0);
+	// Population of unborn individuals
+	sim.addSubpop("p2", 0);
+   
+   mapImage = Image("kibale.png");
+   map = p1.defineSpatialMap("kibale", "xy", 1.0-mapImage.floatK, valueRange = c(0.0, 1.0), colors = c("white", "green"));
+   map2 = p2.defineSpatialMap("kibale2", "xy", 1.0-mapImage.floatK, valueRange = c(0.0, 1.0), colors = c("white", "green"));
+   defineConstant("KIBALE", map);
+   
+   // Initial ages
+   ages = 0:60;
+   age_distribution = rep(1, 61);
+   p1.individuals.age = sample(ages, N0, replace = T, weights = age_distribution);
+   females = p1.subsetIndividuals(sex = "F");
+	males = p1.subsetIndividuals(sex = "M");
+	// Set last year females bred
+   females.setValue("last_rep" ,sample(-6:0, 1));
+   females.color = "pink"; 
+	males.color = "blue";
+	
+	for (ind in p1.individuals){
+		ind.setValue("group", "none");		
+   	// Generate new position uniformly
+   	pos = p1.pointUniform();
+   	// Is position within Kibale's bounds?
+		inBounds = KIBALE.mapValue(pos) == 1.0;			
+		while (!inBounds){
+			pos = p1.pointUniform();
+			inBounds = KIBALE.mapValue(pos) == 1.0;
+		}
+		ind.setSpatialPosition(pos);
+	}
+}
+early() {
+// Births
+    unborn = p2.individuals;
+    potential_births = unborn[unborn.age >=2];
+    if(potential_births.size()){
+    	// Loop through every potential birth
+    	for(fetus in potential_births){
+    		mother = sim.individualsWithPedigreeIDs(fetus.getValue("mother"),  p1);
+    		// If mother is alive, transfer to p1 and set age to 0
+    		// Set group to mother's group
+    		if(mother.size()){
+    			p1.takeMigrants(fetus);
+    			fetus.age = 0;
+				fetus.setSpatialPosition(mother.spatialPosition);
+    		}
+    		// If mother is dead, fetus dies
+    		else{
+    			fetus.fitnessScaling = 0.0;
+    		}
+    	 }
+    }
+    // Age-based mortality
+    for (ind in p1.individuals){
+    	// Taking the square root to up survival
+    	surv_prob = SURVIVAL.getValue(ind.sex)[ind.age];
+    	alive = runif(1) < surv_prob;
+    	ind.fitnessScaling = asFloat(alive);
+    }
+}
+
+late()
+{
+	// Adult female dispersal
+	// Choose matriarchs
+	adult_females = p1.subsetIndividuals(minAge = 12)
+	ngroups = asInteger(length(adult_females)/AVG_GROUP_SIZE); // Number of groups
+	matriarchs = sample(adult_females, ngroups, replace = F, weights = adult_females.age);
+	// Disperse matriarchs
+	for(ind in matriarchs){
+		// Generate new position
+   	pos = ind.spatialPosition + rnorm(2, 0, 1);
+   	// Is position within Kibale's bounds?
+		inBounds = KIBALE.mapValue(pos) == 1.0;			
+		while (!inBounds){
+			pos = ind.spatialPosition + rnorm(2, 0, 1);
+			inBounds = KIBALE.mapValue(pos) == 1.0;
+		}
+		ind.setSpatialPosition(pos);
+	}
+	// Calculate relatedness between non-matriarchs and matriarchs
+	nonmatriarchs = setDifference(adult_females, matriarchs);
+	relatedness = matrix(matriarchs.relatedness(nonmatriarchs), ncol = length(matriarchs));
+	 
+	// Post-puberty male dispersal
+	//post_puberty_males = p1.subsetIndividuals(sex = "M", minAge = 12);	
+	
+	for (ind in p1.individuals){
+   	// Generate new position uniformly
+   	pos = p1.pointUniform();
+   	// Is position within Kibale's bounds?
+		inBounds = KIBALE.mapValue(pos) == 1.0;			
+		while (!inBounds){
+			pos = p1.pointUniform();
+			inBounds = KIBALE.mapValue(pos) == 1.0;
+		}
+		ind.setSpatialPosition(pos);
+	}
+		
+	// Print and write output
+//	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
+//		writeFile(POPSIZE_FILE, paste(c(community.tick, p1.individualCount), sep = ","), append = T);
+//	}
+	print("Late pop size");
+	print(length(p1.individuals));
+	
+}
+
+10000 late() {
+	sim.simulationFinished();
+}
