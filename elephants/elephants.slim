@@ -1,26 +1,17 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
-
 	initializeSLiMOptions(keepPedigrees=T, dimensionality="xy");
-
-	initializeSex("A");
-	
+	initializeSex("A");	
 	if (!exists("OUTPUT")) { 
       defineConstant("OUTPUT", "elephant_parents.csv"); 
    }
    if (!exists("POPSIZE_FILE")) { 
       defineConstant("POPSIZE_FILE", "elephant_popsize.csv"); 
    }
-	if (!exists("TICK_INTERVAL")) {
-   	defineConstant("TICK_INTERVAL", 1);
-   }
-   if (!exists("BURNIN")) {
-   	defineConstant("BURNIN", 40);
-   }
-   
    if (!exists("N0")) {
    	defineConstant("N0", 1000);
    }
+   // Interaction distance for mate choice
    if (!exists("SIGMA")) {
    	defineConstant("SIGMA", 1);
    }
@@ -42,14 +33,10 @@ initialize() {
    	defineConstant("MATURITY_AGE", 15);
    }
    
- 
-	
-	// spatial mate choice
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=1, sexSegregation = "FM");
-	
-	// Interaction function that finds nearest individuals within a radius
-	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=1);
-	
+	// Spatial mate choice
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SIGMA, sexSegregation = "FM");
+	// Interaction function for group reproduction
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SIGMA);
 	// Survival from life table
 	survival = readCSV("survival.csv");
 	defineConstant("SURVIVAL", survival);
@@ -57,11 +44,9 @@ initialize() {
 	if (!exists("SURVIVAL_POWER")) {
    	defineConstant("SURVIVAL_POWER", 0.1);
    } 
-   
 	
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	m1.convertToSubstitution = T;
-	
 	initializeGenomicElementType("g1", m1, 1.0);
 	initializeGenomicElement(g1, 0, 99999);
 	initializeMutationRate(0);
@@ -79,8 +64,9 @@ reproduction(p1, "F") {
 		// Could also check if offspring is alive
 		years_since_last_rep = community.tick - individual.getValue("last_rep");
 		if (years_since_last_rep > 6) {
-			//potential_mates = i1.nearestInteractingNeighbors(individual, p1.size());
-			potential_mates = p1.subsetIndividuals(sex = "M");
+			potential_mates = i1.nearestInteractingNeighbors(individual, length(p1.individuals));
+			//print(potential_mates.size() + "interacting males");
+			//potential_mates = p1.subsetIndividuals(sex = "M");
 	   	if (potential_mates.size()){
    			m_a = potential_mates.age;
 				p_mate = asInteger(m_a > MAGEREPRO);
@@ -118,7 +104,6 @@ reproduction(p2){
 	}
 }
 
-
 1 early() {
 	// Initial population
 	sim.addSubpop("p1", N0);
@@ -126,11 +111,13 @@ reproduction(p2){
 	// Each "individual" is a group
 	ngroups = asInteger(N0/AVG_GROUP_SIZE);
 	sim.addSubpop("p2", ngroups);
-	
 	// Population of unborn individuals
 	sim.addSubpop("p3", 0);
    
    mapImage = Image("kibale.png");
+   p1.setSpatialBounds(c(0.0, 0.0, 10, 10));
+   p2.setSpatialBounds(c(0.0, 0.0, 10, 10));
+   p3.setSpatialBounds(c(0.0, 0.0, 10, 10));
    map = p1.defineSpatialMap("kibale", "xy", 1.0-mapImage.floatK, valueRange = c(0.0, 1.0), colors = c("white", "green"));
    map2 = p2.defineSpatialMap("kibale2", "xy", 1.0-mapImage.floatK, valueRange = c(0.0, 1.0), colors = c("white", "green"));
    map3 = p3.defineSpatialMap("kibale2", "xy", 1.0-mapImage.floatK, valueRange = c(0.0, 1.0), colors = c("white", "green"));
@@ -324,25 +311,6 @@ late()
 			ind.setSpatialPosition(pos);
 		}
 	};
-	
-	
-	
-	// Post-puberty male dispersal
-	adult_males = p1.subsetIndividuals(sex = "M", minAge = MATURITY_AGE);	
-	for (ind in adult_males){
-		ind.color = "blue";
-		ind.setValue("group", "none");		
-   	// Generate new position uniformly
-   	pos = p1.pointUniform();
-   	// Is position within Kibale's bounds?
-		inBounds = KIBALE.mapValue(pos) == 1.0;			
-		while (!inBounds){
-			pos = p1.pointUniform();
-			inBounds = KIBALE.mapValue(pos) == 1.0;
-		}
-		ind.setSpatialPosition(pos);
-	}
-	
 	
 	// Print and write output
 //	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
