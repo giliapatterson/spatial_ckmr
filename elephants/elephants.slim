@@ -13,7 +13,11 @@ initialize() {
    }
    // Interaction distance for mate choice
    if (!exists("SIGMA")) {
-   	defineConstant("SIGMA", 1);
+   	defineConstant("SIGMA", 0.5);
+   }
+   // Interaction distance for one year of dispersal
+   if (!exists("DISPERSAL_SIGMA")) {
+   	defineConstant("DISPERSAL_SIGMA", 0.5);
    }
    if (!exists("NOFFSPRING")) {
    	defineConstant("NOFFSPRING", 1);
@@ -51,6 +55,29 @@ initialize() {
 	initializeGenomicElement(g1, 0, 99999);
 	initializeMutationRate(0);
 	initializeRecombinationRate(1e-8);
+}
+function (float)one_move(float x, float y, integer n, float dispersal_sigma){
+	// n days of movement from coordinates (x, y)
+	distance = n*dispersal_sigma/365;
+	max_tries = 20;
+	new_pos = c(x, y) + rnorm(2, 0, distance);
+	//new_pos = p1.pointUniform(1);
+   // Is position within Kibale's bounds?
+	inBounds = KIBALE.mapValue(new_pos) == 1.0;
+	tries = 1;
+	while (!inBounds & tries <= max_tries){
+		new_pos = c(x, y) + rnorm(2, 0, distance);
+		//new_pos = p1.pointUniform(1);
+		inBounds = KIBALE.mapValue(new_pos) == 1.0;
+		tries = tries + 1;
+	}
+	if (tries <= tries){
+		return(new_pos);
+	}
+	else{
+		print("20 tries all out of bounds");
+		return(c(x, y));
+	}
 }
 
 2: first() {
@@ -236,18 +263,11 @@ early() {
 
 late()
 {
-	// Could simulate movement once a day e.g. for loop with 365 steps
 	// Group dispersal
 	for (group in p2.individuals)
 	{
-		// Generate new position uniformly
-   	pos = p2.pointUniform();
-   	// Is position within Kibale's bounds?
-		inBounds = KIBALE.mapValue(pos) == 1.0;
-		while (!inBounds){
-			pos = p2.pointUniform();
-			inBounds = KIBALE.mapValue(pos) == 1.0;
-		}
+		// Generate new position 
+   	pos = one_move(group.spatialPosition[0], group.spatialPosition[1], 365, DISPERSAL_SIGMA);
 		group.setSpatialPosition(pos);
 	}
 	
@@ -259,12 +279,12 @@ late()
 			print("Error: Individual doesn't have a group");	
 		}
 		if(group != "none" & group != "juvenile"){
-			ind.setSpatialPosition(sim.individualsWithPedigreeIDs(group).spatialPosition+ rnorm(2, 0, 0.02));
+			ind.setSpatialPosition(sim.individualsWithPedigreeIDs(group).spatialPosition + rnorm(2, 0, 0.02));
 		}
 		// Juveniles follow mother or closest relative
 		if(group == "juvenile"){
 			mother = sim.individualsWithPedigreeIDs(ind.getValue("mother"), p1);
-			//print(mother);
+			//print(mother)
 			// When mother is alive
 			if(mother.size()){
 				ind.setSpatialPosition(mother.spatialPosition + rnorm(2, 0, 0.02));
@@ -300,14 +320,7 @@ late()
 		}
 		// Individuals without a group (adult males) move around randomly
 		if(group == "none"){
-			// Generate new position uniformly
-   		pos = p1.pointUniform();
-   		// Is position within Kibale's bounds?
-			inBounds = KIBALE.mapValue(pos) == 1.0;			
-			while (!inBounds){
-				pos = p1.pointUniform();
-				inBounds = KIBALE.mapValue(pos) == 1.0;
-			}
+			pos = one_move(ind.spatialPosition[0], ind.spatialPosition[1], 365, DISPERSAL_SIGMA);
 			ind.setSpatialPosition(pos);
 		}
 	};
