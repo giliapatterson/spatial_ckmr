@@ -2,6 +2,8 @@ initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(keepPedigrees=T, dimensionality="xy");
 	initializeSex("A");	
+	
+	// Output files for sampled individuals, metadata, and population size
 	if (!exists("SPAT_SAMP_OUT")) { 
       defineConstant("SPAT_SAMP_OUT", "spatial_sample.csv"); 
    }
@@ -19,27 +21,36 @@ initialize() {
    }
    writeFile(POPSIZE_FILE, "year,N");
    
+   // Initial population size
    if (!exists("N0")) {
-   	defineConstant("N0", 1000);
+   	defineConstant("N0", 200);
+   }
+   // Carrying capacity for density dependence (keeps population from blowing up)
+   if (!exists("K")) {
+   	defineConstant("K", N0);
    }
    // Interaction distance for mate choice
    if (!exists("SIGMA")) {
    	defineConstant("SIGMA", 0.5);
    }
-   // Interaction distance for one year of dispersal
+   // Distance for one year of dispersal
    if (!exists("DISPERSAL_SIGMA")) {
    	defineConstant("DISPERSAL_SIGMA", 1.0);
    }
-   if (!exists("NOFFSPRING")) {
-   	defineConstant("NOFFSPRING", 1);
+   // Noise added to each individual relative to group position
+   if (!exists("GROUP_NOISE")) {
+   	defineConstant("GROUP_NOISE", 0.2);
    }
+	// Age at which females first reproduce
    if (!exists("FAGEREPRO")) {
    	defineConstant("FAGEREPRO", 25);
    }
+   // Age at which males first reproduce
    if (!exists("MAGEREPRO")) {
    	defineConstant("MAGEREPRO", 30);
    }
-   // Average number of adults in a group
+   // Initial average number of adults in a group
+   // (Actual number stabilizes at something larger)
    if (!exists("AVG_GROUP_SIZE")) {
    	defineConstant("AVG_GROUP_SIZE", 6);
    }
@@ -47,27 +58,35 @@ initialize() {
    if (!exists("MATURITY_AGE")) {
    	defineConstant("MATURITY_AGE", 15);
    }
-   
-	// Spatial mate choice
-	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SIGMA, sexSegregation = "FM");
-	// Interaction function for group reproduction
-	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SIGMA);
+   // Number of offspring each female has when she breeds
+   if (!exists("NOFFSPRING")) {
+   	defineConstant("NOFFSPRING", 1);
+   }
+	
 	// Survival from life table
 	survival = readCSV("survival.csv");
 	defineConstant("SURVIVAL", survival);
 	// Increase survival probabilities by raising to a power less than 1
 	if (!exists("SURVIVAL_POWER")) {
-   	defineConstant("SURVIVAL_POWER", 0.1);
+   	defineConstant("SURVIVAL_POWER", 0.09);
    } 
+   
+   // Interaction function for spatial mate choice
+	initializeInteractionType(1, "xy", reciprocal=T, maxDistance=SIGMA, sexSegregation = "FM");
+	
+	// Interaction function for group reproduction
+	initializeInteractionType(2, "xy", reciprocal=T, maxDistance=SIGMA);
    
    // Sampling size, times and locations
    // Number of individuals to sample at each time point
-   defineConstant("SAMPLE_SIZE",  20);
+   defineConstant("SAMPLE_SIZE",  100);
    defineConstant("SAMPLE_YEARS",  200);
 	defineConstant("SAMPLE_DAYS", c(0, 10, 20, 30));
+	// Potential sampling locations
 	sampling_locations = asFloat(readFile("sampling_locations.txt"));
 	defineConstant("SAMPLING_LOCATIONS", sampling_locations);
 	// Sampling interaction function
+	// Sampling radius
 	defineConstant("SAMPLE_SIGMA",  0.2);
 	initializeInteractionType(3, "xy", reciprocal=T, maxDistance=SAMPLE_SIGMA);
 	// Probability an individual within radius SAMPLE_SIGMA of a chosen sampling location is sampled
@@ -157,10 +176,10 @@ reproduction(p2){
 
 1 early() {
 	// Initial population
-	sim.addSubpop("p1", N0);
+	sim.addSubpop("p1", asInteger(N0*1.25));
 	// Population of female groups
 	// Each "individual" is a group
-	ngroups = asInteger(N0/AVG_GROUP_SIZE);
+	ngroups = asInteger(length(p1.individuals)/AVG_GROUP_SIZE);
 	sim.addSubpop("p2", ngroups);
 	// Population of unborn individuals
 	sim.addSubpop("p3", 0);
@@ -177,7 +196,7 @@ reproduction(p2){
    // Initial ages
    ages = 0:60;
    age_distribution = rep(1, 61);
-   p1.individuals.age = sample(ages, N0, replace = T, weights = age_distribution);
+   p1.individuals.age = sample(ages, length(p1.individuals), replace = T, weights = age_distribution);
    
    // Groups have random initial positions within the boundaries of kibale
    for (group in p2.individuals) {
@@ -198,7 +217,7 @@ reproduction(p2){
 	for (fem in females){
 		group = p2.sampleIndividuals(1);
 		fem.setValue("group", group.pedigreeID);
-		fem.setSpatialPosition(group.spatialPosition);
+		fem.setSpatialPosition(group.spatialPosition + rnorm(2, 0, GROUP_NOISE));
 		fem.color = "pink";
 		// Last year individual bred
 		fem.setValue("last_rep" ,sample(-6:0, 1));
@@ -209,7 +228,7 @@ reproduction(p2){
 	for (ind in juvenile_males){
 		group = p2.sampleIndividuals(1);
 		ind.setValue("group", group.pedigreeID);
-		ind.setSpatialPosition(group.spatialPosition);
+		ind.setSpatialPosition(group.spatialPosition + rnorm(2, 0, GROUP_NOISE));
 		ind.color = "blue";
 	};	
    // Adult males are given a random location within kibale
@@ -234,8 +253,7 @@ early() {
 
     // Age-based mortality
     for (ind in p1.individuals){
-    	// Taking the square root to up survival
-    	surv_prob = SURVIVAL.getValue(ind.sex)[ind.age]^SURVIVAL_POWER;
+    	surv_prob = ( K/p1.individualCount)*SURVIVAL.getValue(ind.sex)[ind.age]^SURVIVAL_POWER;
     	alive = runif(1) < surv_prob;
     	ind.fitnessScaling = asFloat(alive);
     }
@@ -276,6 +294,7 @@ early() {
     			fetus.age = 0;
 				fetus.setValue("group", "juvenile");
 				fetus.setSpatialPosition(mother.spatialPosition);
+				print("new baby");
     		}
     		// If mother is dead, fetus dies
     		else{
@@ -322,7 +341,7 @@ late()
 				print("Error: Individual doesn't have a group");	
 			}
 			if(group != "none" & group != "juvenile"){
-				ind.setSpatialPosition(sim.individualsWithPedigreeIDs(group).spatialPosition + rnorm(2, 0, 0.02));
+				ind.setSpatialPosition(sim.individualsWithPedigreeIDs(group).spatialPosition + rnorm(2, 0, GROUP_NOISE));
 			}
 			// Juveniles follow mother or closest relative
 			if(group == "juvenile"){
@@ -330,7 +349,7 @@ late()
 				//print(mother)
 				// When mother is alive
 				if(mother.size()){
-					ind.setSpatialPosition(mother.spatialPosition + rnorm(2, 0, 0.02));
+					ind.setSpatialPosition(mother.spatialPosition + rnorm(2, 0, GROUP_NOISE));
 					// If juvenile has reached maturity, update group
 					if (ind.age >= MATURITY_AGE){
 						if(ind.sex == "F"){
@@ -349,7 +368,7 @@ late()
 					adult_females = p1.subsetIndividuals(exclude = ind, sex = "F", minAge = MATURITY_AGE + 1);
 					// Add a small number to relatedness for when no related females are alive
 					relative = sample(adult_females, 1, weights = ind.relatedness(adult_females) + 0.001);
-					ind.setSpatialPosition(relative.spatialPosition + rnorm(2, 0, 0.02));
+					ind.setSpatialPosition(relative.spatialPosition + rnorm(2, 0, GROUP_NOISE));
 					ind.setValue("mother", relative.pedigreeID);
 					// If juvenile has reached maturity, update group
 					if (ind.age >= MATURITY_AGE){
