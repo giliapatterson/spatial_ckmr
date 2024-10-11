@@ -2,12 +2,23 @@ initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(keepPedigrees=T, dimensionality="xy");
 	initializeSex("A");	
-	if (!exists("OUTPUT")) { 
-      defineConstant("OUTPUT", "elephant_parents.csv"); 
+	if (!exists("SPAT_SAMP_OUT")) { 
+      defineConstant("SPAT_SAMP_OUT", "spatial_sample.csv"); 
    }
+   writeFile(SPAT_SAMP_OUT, paste(c("individual", "parent1", "parent2", "age", "sex", "year", "day", "x", "y"), sep = ","));
+   if (!exists("SAMPLE_LOCS_OUT")) { 
+      defineConstant("SAMPLE_LOCS_OUT", "spatial_sample_intensity.csv"); 
+   }
+   writeFile(SAMPLE_LOCS_OUT, "x,y");
+   if (!exists("RAND_SAMP_OUT")) { 
+      defineConstant("RAND_SAMP_OUT", "random_sample.csv"); 
+   }
+   writeFile(RAND_SAMP_OUT, paste(c("individual", "parent1", "parent2", "age", "sex", "year", "day", "x", "y"), sep = ","));
    if (!exists("POPSIZE_FILE")) { 
-      defineConstant("POPSIZE_FILE", "elephant_popsize.csv"); 
+      defineConstant("POPSIZE_FILE", "popsize.csv"); 
    }
+   writeFile(POPSIZE_FILE, "year,N");
+   
    if (!exists("N0")) {
    	defineConstant("N0", 1000);
    }
@@ -17,7 +28,7 @@ initialize() {
    }
    // Interaction distance for one year of dispersal
    if (!exists("DISPERSAL_SIGMA")) {
-   	defineConstant("DISPERSAL_SIGMA", 0.5);
+   	defineConstant("DISPERSAL_SIGMA", 1.0);
    }
    if (!exists("NOFFSPRING")) {
    	defineConstant("NOFFSPRING", 1);
@@ -48,7 +59,20 @@ initialize() {
 	if (!exists("SURVIVAL_POWER")) {
    	defineConstant("SURVIVAL_POWER", 0.1);
    } 
-	
+   
+   // Sampling size, times and locations
+   // Number of individuals to sample at each time point
+   defineConstant("SAMPLE_SIZE",  20);
+   defineConstant("SAMPLE_YEARS",  200);
+	defineConstant("SAMPLE_DAYS", c(0, 10, 20, 30));
+	sampling_locations = asFloat(readFile("sampling_locations.txt"));
+	defineConstant("SAMPLING_LOCATIONS", sampling_locations);
+	// Sampling interaction function
+	defineConstant("SAMPLE_SIGMA",  0.2);
+	initializeInteractionType(3, "xy", reciprocal=T, maxDistance=SAMPLE_SIGMA);
+	// Probability an individual within radius SAMPLE_SIGMA of a chosen sampling location is sampled
+	defineConstant("PSAMPLE", 0.5);
+		
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	m1.convertToSubstitution = T;
 	initializeGenomicElementType("g1", m1, 1.0);
@@ -58,7 +82,7 @@ initialize() {
 }
 function (float)one_move(float x, float y, integer n, float dispersal_sigma){
 	// n days of movement from coordinates (x, y)
-	distance = n*dispersal_sigma/365;
+	distance = sqrt(n*dispersal_sigma/365);
 	max_tries = 20;
 	new_pos = c(x, y) + rnorm(2, 0, distance);
 	//new_pos = p1.pointUniform(1);
@@ -263,72 +287,117 @@ early() {
 
 late()
 {
-	// Group dispersal
-	for (group in p2.individuals)
-	{
-		// Generate new position 
-   	pos = one_move(group.spatialPosition[0], group.spatialPosition[1], 365, DISPERSAL_SIGMA);
-		group.setSpatialPosition(pos);
+	// Is this a year where sampling takes place?
+	sample_year = any(SAMPLE_YEARS == community.tick);
+	// If it is a sampling year, dispersal happens every day days for one year
+	if(sample_year){
+		dispersal_days = 1;
 	}
-	
-	// Move individuals around
-	for (ind in p1.individuals){
-		group = ind.getValue("group");
-		// Adult females follow group
-		if(isNULL(group)){
-			print("Error: Individual doesn't have a group");	
+	// Otherwise, dispersal happens only once per year
+	else{
+		dispersal_days = 365;
+	}
+	periods = asInteger(365/dispersal_days);
+	for (day in 1:periods){
+		sample_day = any(SAMPLE_DAYS == day);
+		if(sample_year & sample_day){
+			sample = T;
 		}
-		if(group != "none" & group != "juvenile"){
-			ind.setSpatialPosition(sim.individualsWithPedigreeIDs(group).spatialPosition + rnorm(2, 0, 0.02));
+		else{
+			sample = F;
 		}
-		// Juveniles follow mother or closest relative
-		if(group == "juvenile"){
-			mother = sim.individualsWithPedigreeIDs(ind.getValue("mother"), p1);
-			//print(mother)
-			// When mother is alive
-			if(mother.size()){
-				ind.setSpatialPosition(mother.spatialPosition + rnorm(2, 0, 0.02));
-				// If juvenile has reached maturity, update group
-				if (ind.age >= MATURITY_AGE){
-					if(ind.sex == "F"){
-						ind.setValue("group", mother.getValue("group"));
+		// Group dispersal
+		for (group in p2.individuals)
+		{
+			// Generate new position 
+	   	pos = one_move(group.spatialPosition[0], group.spatialPosition[1], dispersal_days, DISPERSAL_SIGMA);
+			group.setSpatialPosition(pos);
+		}
+		
+		// Move individuals around
+		for (ind in p1.individuals){
+			group = ind.getValue("group");
+			// Adult females follow group
+			if(isNULL(group)){
+				print("Error: Individual doesn't have a group");	
+			}
+			if(group != "none" & group != "juvenile"){
+				ind.setSpatialPosition(sim.individualsWithPedigreeIDs(group).spatialPosition + rnorm(2, 0, 0.02));
+			}
+			// Juveniles follow mother or closest relative
+			if(group == "juvenile"){
+				mother = sim.individualsWithPedigreeIDs(ind.getValue("mother"), p1);
+				//print(mother)
+				// When mother is alive
+				if(mother.size()){
+					ind.setSpatialPosition(mother.spatialPosition + rnorm(2, 0, 0.02));
+					// If juvenile has reached maturity, update group
+					if (ind.age >= MATURITY_AGE){
+						if(ind.sex == "F"){
+							ind.setValue("group", mother.getValue("group"));
+						}
+						else{
+							ind.setValue("group", "none");
+						}
 					}
-					else{
-						ind.setValue("group", "none");
+				}
+				// When mother is not alive, assign a close female relative as mother
+				else{
+					// Choose a random adult female with probability proportional to relatedness
+					// Plus 1 in minAge is because group membership of females that became adults this year
+					// haven't necessarily been updated
+					adult_females = p1.subsetIndividuals(exclude = ind, sex = "F", minAge = MATURITY_AGE + 1);
+					// Add a small number to relatedness for when no related females are alive
+					relative = sample(adult_females, 1, weights = ind.relatedness(adult_females) + 0.001);
+					ind.setSpatialPosition(relative.spatialPosition + rnorm(2, 0, 0.02));
+					ind.setValue("mother", relative.pedigreeID);
+					// If juvenile has reached maturity, update group
+					if (ind.age >= MATURITY_AGE){
+						if(ind.sex == "F"){
+							ind.setValue("group", relative.getValue("group"));
+						}
+						else{
+							ind.setValue("group", "none");
+						}
 					}
 				}
 			}
-			// When mother is not alive, assign to a group with close female relative
-			else{
-				// Choose a random adult female with probability proportional to relatedness
-				// Plus 1 in minAge is because group membership of females that became adults this year
-				// haven't necessarily been updated
-				adult_females = p1.subsetIndividuals(exclude = ind, sex = "F", minAge = MATURITY_AGE + 1);
-				// Add a small number to relatedness to solve the problem when no related females are alive
-				relative = sample(adult_females, 1, weights = ind.relatedness(adult_females) + 0.001);
-				ind.setSpatialPosition(relative.spatialPosition + rnorm(2, 0, 0.02));
-				// If juvenile has reached maturity, update group
-				if (ind.age >= MATURITY_AGE){
-					if(ind.sex == "F"){
-						ind.setValue("group", relative.getValue("group"));
-					}
-					else{
-						ind.setValue("group", "none");
-					}
-				}
+			// Individuals without a group (adult males) move around randomly
+			if(group == "none"){
+				pos = one_move(ind.spatialPosition[0], ind.spatialPosition[1], dispersal_days, DISPERSAL_SIGMA);
+				ind.setSpatialPosition(pos);
 			}
 		}
-		// Individuals without a group (adult males) move around randomly
-		if(group == "none"){
-			pos = one_move(ind.spatialPosition[0], ind.spatialPosition[1], 365, DISPERSAL_SIGMA);
-			ind.setSpatialPosition(pos);
+		if(sample){
+			// Sampling interaction function
+			i3.evaluate(p1);
+			total_sampled = 0;
+			ntries = 0;
+			while(total_sampled < SAMPLE_SIZE & ntries < 200){
+				nsites = length(SAMPLING_LOCATIONS)/2;
+				loc_i = asInteger(sample(0:(nsites-1), 1));
+				loc = SAMPLING_LOCATIONS[c(loc_i*2, loc_i*2 + 1)];
+				n_near = i3.neighborCountOfPoint(loc, p1);
+				neighbors = i3.nearestNeighborsOfPoint(loc, p1,n_near);
+				sampled_i = rbinom(n_near, 1, 0.5);
+				sampled = neighbors[sampled_i==1];		
+				total_sampled = total_sampled + length(sampled);
+				print(loc);
+				print(length(sampled));
+				ntries + 1;
+				writeFile(SAMPLE_LOCS_OUT, paste(loc, sep = ","), append = T);
+				for(ind in sampled){
+					writeFile(SPAT_SAMP_OUT, paste(c(ind.pedigreeID, ind.pedigreeParentIDs, ind.age, ind.sex, community.tick, day), sep = ",") + "," + paste(c(ind.x, ind.y), sep = ","), append = T);
+				}
+			}
+			random_sample = p1.sampleIndividuals(SAMPLE_SIZE);
+			for(ind in random_sample){
+					writeFile(RAND_SAMP_OUT, paste(c(ind.pedigreeID, ind.pedigreeParentIDs, ind.age, ind.sex, community.tick, day), sep = ",") + "," + paste(c(ind.x, ind.y), sep = ","), append = T);
+			}
 		}
-	};
-	
-	// Print and write output
-//	if (community.tick % TICK_INTERVAL == 0 & community.tick >= BURNIN){
-//		writeFile(POPSIZE_FILE, paste(c(community.tick, p1.individualCount), sep = ","), append = T);
-//	}
+	}
+	writeFile(POPSIZE_FILE, paste(c(community.tick, p1.individualCount), sep = ","), append = T);
+
 	print("Late pop size");
 	print(length(p1.individuals));
 	print("Number of groups with individuals");
