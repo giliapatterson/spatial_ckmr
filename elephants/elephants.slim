@@ -1,7 +1,12 @@
 initialize() {
 	initializeSLiMModelType("nonWF");
 	initializeSLiMOptions(keepPedigrees=T, dimensionality="xy");
-	initializeSex("A");	
+	initializeSex("A");
+	
+	// Parameters I would want to change for training
+	// Output files: 	SPAT_SAMP_OUT, SAMPLE_LOCS_OUT, RAND_SAMP_OUT, POPSIZE_FILE
+	// Population size: N0
+	// Sampling times, minimum sample size per time, and potential locations: SAMPLE_YEARS, SAMPLE_DAYS, SAMPLE_SIZE, POTENTIAL_LOCS_FILE
 	
 	// Output files for sampled individuals, metadata, and population size
 	if (!exists("SPAT_SAMP_OUT")) { 
@@ -11,7 +16,8 @@ initialize() {
    if (!exists("SAMPLE_LOCS_OUT")) { 
       defineConstant("SAMPLE_LOCS_OUT", "spatial_sample_intensity.csv"); 
    }
-   writeFile(SAMPLE_LOCS_OUT, "x,y");
+   writeFile(SAMPLE_LOCS_OUT, "x,y,year,day,nsampled");
+   
    if (!exists("RAND_SAMP_OUT")) { 
       defineConstant("RAND_SAMP_OUT", "random_sample.csv"); 
    }
@@ -52,7 +58,7 @@ initialize() {
    // Initial average number of adults in a group
    // (Actual number stabilizes at something larger)
    if (!exists("AVG_GROUP_SIZE")) {
-   	defineConstant("AVG_GROUP_SIZE", 6);
+   	defineConstant("AVG_GROUP_SIZE", 8);
    }
    // Age at which individuals can leave their maternal group
    if (!exists("MATURITY_AGE")) {
@@ -79,18 +85,33 @@ initialize() {
    
    // Sampling size, times and locations
    // Number of individuals to sample at each time point
-   defineConstant("SAMPLE_SIZE",  100);
-   defineConstant("SAMPLE_YEARS",  200);
-	defineConstant("SAMPLE_DAYS", c(0, 10, 20, 30));
+   if(!exists("SAMPLE_SIZE")){
+   	defineConstant("SAMPLE_SIZE",  1);
+   }
+   if(!exists("SAMPLE_YEARS")){
+   	defineConstant("SAMPLE_YEARS",  200);
+   }
+   if(!exists("SAMPLE_DAYS")){
+   	defineConstant("SAMPLE_DAYS", 1);
+   }
 	// Potential sampling locations
-	sampling_locations = asFloat(readFile("sampling_locations.txt"));
+	if(!exists("POTENTIAL_LOCS_FILE")){
+   	defineConstant("POTENTIAL_LOCS_FILE", "sampling_locations.txt");
+   }
+	sampling_locations = readCSV(POTENTIAL_LOCS_FILE);
 	defineConstant("SAMPLING_LOCATIONS", sampling_locations);
+	
 	// Sampling interaction function
 	// Sampling radius
-	defineConstant("SAMPLE_SIGMA",  0.2);
+	if(!exists("SAMPLE_SIGMA")){
+		defineConstant("SAMPLE_SIGMA",  0.2);
+	}
 	initializeInteractionType(3, "xy", reciprocal=T, maxDistance=SAMPLE_SIGMA);
+	
 	// Probability an individual within radius SAMPLE_SIGMA of a chosen sampling location is sampled
-	defineConstant("PSAMPLE", 0.5);
+	if(!exists("PSAMPLE")){
+		defineConstant("PSAMPLE", 0.9);
+	}
 		
 	initializeMutationType("m1", 0.5, "f", 0.0);
 	m1.convertToSubstitution = T;
@@ -101,7 +122,7 @@ initialize() {
 }
 function (float)one_move(float x, float y, integer n, float dispersal_sigma){
 	// n days of movement from coordinates (x, y)
-	distance = sqrt(n*dispersal_sigma/365);
+	distance = sqrt(n*(dispersal_sigma^2)/365);
 	max_tries = 20;
 	new_pos = c(x, y) + rnorm(2, 0, distance);
 	//new_pos = p1.pointUniform(1);
@@ -249,7 +270,6 @@ reproduction(p2){
 	};
 }
 early() {
-	i2.evaluate(p2);
 
     // Age-based mortality
     for (ind in p1.individuals){
@@ -257,27 +277,39 @@ early() {
     	alive = runif(1) < surv_prob;
     	ind.fitnessScaling = asFloat(alive);
     }
+    
     // Compute group size for everybody first and store as a property
     for (group in p2.individuals){
     	members = p1.individuals[p1.individuals.getValue("group") == group.pedigreeID];
 	 	group_size = length(members);
 	 	group.setValue("group_size", group_size);
     } 
+    i2.evaluate(p2);
+
     // Merge small groups into neighboring groups
-    small_groups = p2.individuals[p2.individuals.getValue("group_size") <= 3];
+    small_groups = p2.individuals[p2.individuals.getValue("group_size") <= AVG_GROUP_SIZE/3];
     for (group in small_groups){
 	 	neighbors = i2.nearestNeighbors(group);
-	 	if(size(neighbors) > 0){
-			neighbor_sizes = neighbors.getValue("group_size");
-			new_group = sample(neighbors, 1, weights = 1/group_size);
-			members = p1.individuals[p1.individuals.getValue("group") == group.pedigreeID];
-			members.setValue("group", new_group.pedigreeID);
-			old_size = new_group.getValue("group_size");
-			new_group.setValue("group_size", old_size + group.getValue("group_size"));
-			group.setValue("group_size", 0);
-	 	}
+	 	if(size(neighbors)>0){
+		 	neighbor_sizes = neighbors.getValue("group_size");
+		 	// Neighboring groups that have individuals
+		 	nz_neighbors = neighbors[neighbor_sizes != 0];
+		 	if(size(nz_neighbors) > 0){
+				new_group = sample(neighbors, 1, weights = 1/nz_neighbors.getValue("group_size"));
+				//print(new_group.getValue("group_size"));
+				members = p1.individuals[p1.individuals.getValue("group") == group.pedigreeID];
+				members.setValue("group", new_group.pedigreeID);
+				old_size = new_group.getValue("group_size");
+				new_group.setValue("group_size", old_size + group.getValue("group_size"));
+				group.setValue("group_size", 0);
+		 	}
+	 		else{
+	 			//print("no neighboring non-zero groups");
+	 		}
+	 	 }
 	 }
-	 // Eliminate empty groups
+	 
+    // Eliminate empty groups
     p2.individuals.fitnessScaling = asFloat(p2.individuals.getValue("group_size") != 0);
     
     // Births
@@ -294,7 +326,6 @@ early() {
     			fetus.age = 0;
 				fetus.setValue("group", "juvenile");
 				fetus.setSpatialPosition(mother.spatialPosition);
-				print("new baby");
     		}
     		// If mother is dead, fetus dies
     		else{
@@ -390,21 +421,23 @@ late()
 		if(sample){
 			// Sampling interaction function
 			i3.evaluate(p1);
+			// Randomize order of potential sampling locations
+			rows = 0:(SAMPLING_LOCATIONS.nrow-1);
+			rand_rows = sample(rows, size = length(rows));
+			pot_locs = SAMPLING_LOCATIONS.subsetRows(rand_rows);
 			total_sampled = 0;
-			ntries = 0;
-			while(total_sampled < SAMPLE_SIZE & ntries < 200){
-				nsites = length(SAMPLING_LOCATIONS)/2;
-				loc_i = asInteger(sample(0:(nsites-1), 1));
-				loc = SAMPLING_LOCATIONS[c(loc_i*2, loc_i*2 + 1)];
+			pot_locs_i = 0;
+			while(total_sampled < SAMPLE_SIZE & pot_locs_i < pot_locs.nrow){
+				x = pot_locs.subset(pot_locs_i, "x");
+				y = pot_locs.subset(pot_locs_i, "y");
+				loc = c(x, y);
 				n_near = i3.neighborCountOfPoint(loc, p1);
 				neighbors = i3.nearestNeighborsOfPoint(loc, p1,n_near);
 				sampled_i = rbinom(n_near, 1, 0.5);
 				sampled = neighbors[sampled_i==1];		
 				total_sampled = total_sampled + length(sampled);
-				print(loc);
-				print(length(sampled));
-				ntries + 1;
-				writeFile(SAMPLE_LOCS_OUT, paste(loc, sep = ","), append = T);
+				pot_locs_i = pot_locs_i + 1;
+				writeFile(SAMPLE_LOCS_OUT, paste(c(loc, community.tick, day, length(sampled)), sep = ","), append = T);
 				for(ind in sampled){
 					writeFile(SPAT_SAMP_OUT, paste(c(ind.pedigreeID, ind.pedigreeParentIDs, ind.age, ind.sex, community.tick, day), sep = ",") + "," + paste(c(ind.x, ind.y), sep = ","), append = T);
 				}
@@ -417,20 +450,20 @@ late()
 	}
 	writeFile(POPSIZE_FILE, paste(c(community.tick, p1.individualCount), sep = ","), append = T);
 
-	print("Late pop size");
-	print(length(p1.individuals));
-	print("Number of groups with individuals");
-	groups = unique(p1.individuals.getValue("group"));
-	print(length(groups));
-	print("Average group size");
-	total_group_size = 0;
-	for(group in groups){
-		members = p1.individuals[p1.individuals.getValue("group") == group];
-		total_group_size = total_group_size + length(members);
-	}
-	print(total_group_size/length(groups));
+//	print("Late pop size");
+//	print(length(p1.individuals));
+//	print("Number of groups with individuals");
+//	groups = unique(p1.individuals.getValue("group"));
+//	print(length(groups));
+//	print("Average group size");
+//	total_group_size = 0;
+//	for(group in groups){
+//		members = p1.individuals[p1.individuals.getValue("group") == group];
+//		total_group_size = total_group_size + length(members);
+//	}
+//	print(total_group_size/length(groups));
 }
 
-10000 late() {
+max(SAMPLE_YEARS) late() {
 	sim.simulationFinished();
 }
