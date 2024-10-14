@@ -21,3 +21,5 @@ dependencies:
     - r-tidyverse
     - pandas
     - nlopt
+    - polars
+    - seaborn

@@ -28,9 +28,6 @@ spaghetti_pops_out = args.spaghetti_pops_out
 spaghetti_sibs_out = args.spaghetti_sibs_out
 metadata_out = args.metadata_out
 
-# Parents of all dead individuals
-parents = pd.read_csv(parents_file)
-
 # Population sizes
 popsize = pd.read_csv(popsize_file)
 # Calculate average population size
@@ -38,7 +35,8 @@ N_avg = np.mean(popsize.loc[:,'N'])
 N_final = popsize.loc[:, 'N'].values[-1]
 
 # Sampled individuals
-sample_parents = pd.read_csv(parents_file)
+parents = pd.read_csv(parents_file)
+sample_parents = parents.drop_duplicates()
 
 # Find individuals in the sample that have a child in the sample
 ind_in_p1 = np.isin(sample_parents.loc[:,'individual'].values, sample_parents.loc[:,'parent1'])

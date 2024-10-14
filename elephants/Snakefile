@@ -1,22 +1,22 @@
 import numpy as np
 
 # Population sizes to simulate
-#Ns = np.linspace(150, 800, 51)
-Ns = np.linspace(150, 250, 3).astype(int)
+Ns = np.linspace(100, 1000, 51).astype(int)
+#Ns = np.linspace(150, 250, 3).astype(int)
 
 # Number of times to run each simulation
-#reps = np.arange(1, 51)
-reps = np.array([1, 2])
+reps = np.arange(1, 51)
+#reps = np.array([1, 2])
 
 # Sample sizes for each simulation
-ns = np.array([100, 200]).astype(int)
+ns = np.linspace(30, 500, 10).astype(int)
 
 # File names for the output file of each individual and their parents from each simulation
 spatout_pattern = "elephant_data/spatial_sample_{N}_{n}_{rep}.csv"
 spatout = expand(spatout_pattern, N = Ns, n = ns, rep = reps)
 
 spatlocs_pattern = "elephant_data/spatial_locations_{N}_{n}_{rep}.csv"
-spatlocs = expand(spatlocs_pattern, N = ns, n = ns, rep = reps)
+spatlocs = expand(spatlocs_pattern, N = Ns, n = ns, rep = reps)
 
 randout_pattern = "elephant_data/random_sample_{N}_{n}_{rep}.csv"
 randout = expand(randout_pattern, N = Ns, n = ns, rep = reps)
