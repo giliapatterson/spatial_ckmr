@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-N", type = int, help = "population size")
 parser.add_argument("-n", help = "sample size")
 parser.add_argument("--rep", help = "replicate number")
+parser.add_argument("--group_size", help = "group_size")
 parser.add_argument("--parents_file", help = "path to parents file")
 parser.add_argument("--popsize_file", help = "path to popsize file")
 parser.add_argument("--spaghetti_pops_out", help = "path to spaghetti plot of POPs")
@@ -22,6 +23,7 @@ args = parser.parse_args()
 N = args.N
 n = args.n
 rep = args.rep
+group_size = args.group_size
 parents_file = args.parents_file
 popsize_file = args.popsize_file
 spaghetti_pops_out = args.spaghetti_pops_out
@@ -97,4 +99,4 @@ pops_spaghetti.save(spaghetti_pops_out)
 sibs_spaghetti.save(spaghetti_sibs_out)
 
 with open(metadata_out, "w") as f:
-    f.write(str(N) + "," + str(rep) + ","+ str(N_final) + ","+ str(n) + "," + str(npops) + "," + str(nsibs) + "," + str(nfullsibs) + "\n")
+    f.write(str(N) + "," + str(rep) + ","+ str(N_final) + ","+ str(n) + ","+ str(group_size) + "," + str(npops) + "," + str(nsibs) + "," + str(nfullsibs) + "\n")

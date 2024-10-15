@@ -3,44 +3,57 @@ import numpy as np
 # Population sizes to simulate
 Ns = np.linspace(100, 1000, 51).astype(int)
 #Ns = np.linspace(150, 250, 3).astype(int)
+Ns = Ns[Ns > 200][0:39]
 
 # Number of times to run each simulation
 reps = np.arange(1, 51)
-#reps = np.array([1, 2])
 
 # Sample sizes for each simulation
 ns = np.linspace(30, 500, 10).astype(int)
+ns = ns[ns > 70][[0,2,4,6,8]]
+
+# Average group size
+group_size = np.array([8, 15])
+
+# Base directory
+dir = "/sietch_colab/gpatters/ckmr/elephants/"
 
 # File names for the output file of each individual and their parents from each simulation
-spatout_pattern = "elephant_data/spatial_sample_{N}_{n}_{rep}.csv"
-spatout = expand(spatout_pattern, N = Ns, n = ns, rep = reps)
+spatout_pattern = dir + "elephant_data_groupsize{group_size}/spatial_sample_{N}_{n}_{rep}.csv"
+spatout = expand(spatout_pattern, N = Ns, n = ns, rep = reps, group_size = group_size)
 
-spatlocs_pattern = "elephant_data/spatial_locations_{N}_{n}_{rep}.csv"
-spatlocs = expand(spatlocs_pattern, N = Ns, n = ns, rep = reps)
+spatlocs_pattern = dir + "elephant_data_groupsize{group_size}/spatial_locations_{N}_{n}_{rep}.csv"
+spatlocs = expand(spatlocs_pattern, N = Ns, n = ns, rep = reps, group_size = group_size)
 
-randout_pattern = "elephant_data/random_sample_{N}_{n}_{rep}.csv"
-randout = expand(randout_pattern, N = Ns, n = ns, rep = reps)
+randout_pattern = dir + "elephant_data_groupsize{group_size}/random_sample_{N}_{n}_{rep}.csv"
+randout = expand(randout_pattern, N = Ns, n = ns, rep = reps, group_size = group_size)
 
 # File names for population sizes from each simulation
-popsize_file_pattern = "elephant_data/popsizes_{N}_{n}_{rep}.csv"
-popsizes = expand(popsize_file_pattern, N=Ns, n = ns, rep = reps)
+popsize_file_pattern = dir + "elephant_data_groupsize{group_size}/popsizes_{N}_{n}_{rep}.csv"
+popsizes = expand(popsize_file_pattern, N=Ns, n = ns, rep = reps, group_size = group_size)
 
-# File names for images of parent-offspring pairs, sibling pairs, and sampling intensity for each simulation
-pattern = "elephant_data/{type}_{N}_{n}_{rep}.png"
+# File names for images of parent-offspring pairs, sibling pairs
+pattern = dir + "elephant_data_groupsize{group_size}/{type}_{N}_{n}_{rep}.png"
 types = ["pops", "halfsibs", "random_pops", "random_halfsibs"]
-image_files = expand(pattern, type = types, N = Ns, n = ns, rep = reps)
+image_files = expand(pattern, type = types, N = Ns, n = ns, rep = reps, group_size = group_size)
+
+# File names for sampling intensity map
+map_pattern = dir + "elephant_data_groupsize{group_size}/intensity_map_{N}_{n}_{rep}.png"
+map_files = expand(map_pattern, N = Ns, n = ns, rep = reps, group_size = group_size)
 
 # File names for metadata files for each simulation (values of parameters and number of parent-offspring and sibling pairs)
-metadata_files = expand("elephant_data/metadata/meta_{N}_{n}_{rep}.csv", N = Ns, n = ns, rep = reps)
-random_metadata_files = expand("elephant_data/metadata/random_meta_{N}_{n}_{rep}.csv", N = Ns, n = ns, rep = reps)
+metadata_pattern = dir + "elephant_data_groupsize{group_size}/metadata/meta_{N}_{n}_{rep}.csv"
+metadata_files = expand(metadata_pattern, N = Ns, n = ns, rep = reps, group_size = group_size)
+random_metadata_pattern = dir + "elephant_data_groupsize{group_size}/metadata/random_meta_{N}_{n}_{rep}.csv"
+random_metadata_files = expand(random_metadata_pattern, N = Ns, n = ns, rep = reps, group_size = group_size)
 
 # File to store information about all the simulations
-labels_file = "elephant_data/spatial_labels.csv"
-random_labels_file = "elephant_data/random_labels.csv"
+labels_file = dir + "spatial_labels.csv"
+random_labels_file = dir + "random_labels.csv"
 
 rule all:
     input: 
-        popsizes, spatout, randout, spatlocs, image_files, metadata_files, random_metadata_files, labels_file, random_labels_file
+        popsizes, spatout, randout, spatlocs, image_files, metadata_files, random_metadata_files, map_files, labels_file, random_labels_file
 
 rule run_slim:
     params:
@@ -67,11 +80,11 @@ rule plot_spatial:
         spatout_pattern,
         popsize_file_pattern
     output:
-        "elephant_data/pops_{N}_{n}_{rep}.png",
-        "elephant_data/halfsibs_{N}_{n}_{rep}.png",
-        "elephant_data/metadata/meta_{N}_{n}_{rep}.csv"
+        "/sietch_colab/gpatters/ckmr/elephants/elephant_data_groupsize{group_size}/pops_{N}_{n}_{rep}.png",
+        "/sietch_colab/gpatters/ckmr/elephants/elephant_data_groupsize{group_size}/halfsibs_{N}_{n}_{rep}.png",
+        "/sietch_colab/gpatters/ckmr/elephants/elephant_data_groupsize{group_size}/metadata/meta_{N}_{n}_{rep}.csv"
     shell:
-        "python plot_spaghetti.py -N {wildcards.N} -n {wildcards.n} --rep {wildcards.rep} --parents_file {params.sample_file} --popsize_file {params.popsize_file} --spaghetti_pops_out {params.pops_file} --spaghetti_sibs_out {params.hs_file} --metadata_out {params.meta_file}"
+        "python plot_spaghetti.py -N {wildcards.N} -n {wildcards.n} --rep {wildcards.rep} --group_size {wildcards.group_size} --parents_file {params.sample_file} --popsize_file {params.popsize_file} --spaghetti_pops_out {params.pops_file} --spaghetti_sibs_out {params.hs_file} --metadata_out {params.meta_file}"
 
 rule plot_random:
     params:
@@ -84,29 +97,38 @@ rule plot_random:
         randout_pattern,
         popsize_file_pattern
     output:
-        "elephant_data/random_pops_{N}_{n}_{rep}.png",
-        "elephant_data/random_halfsibs_{N}_{n}_{rep}.png",
-        "elephant_data/metadata/random_meta_{N}_{n}_{rep}.csv"
+        "/sietch_colab/gpatters/ckmr/elephants/elephant_data_groupsize{group_size}/random_pops_{N}_{n}_{rep}.png",
+        "/sietch_colab/gpatters/ckmr/elephants/elephant_data_groupsize{group_size}/random_halfsibs_{N}_{n}_{rep}.png",
+        "/sietch_colab/gpatters/ckmr/elephants/elephant_data_groupsize{group_size}/metadata/random_meta_{N}_{n}_{rep}.csv"
     shell:
-        "python plot_spaghetti.py -N {wildcards.N} -n {wildcards.n} --rep {wildcards.rep} --parents_file {params.sample_file} --popsize_file {params.popsize_file} --spaghetti_pops_out {params.pops_file} --spaghetti_sibs_out {params.hs_file} --metadata_out {params.meta_file}"
+        "python plot_spaghetti.py -N {wildcards.N} -n {wildcards.n} --rep {wildcards.rep} --group_size {wildcards.group_size} --parents_file {params.sample_file} --popsize_file {params.popsize_file} --spaghetti_pops_out {params.pops_file} --spaghetti_sibs_out {params.hs_file} --metadata_out {params.meta_file}"
+
+rule plot_sampling:
+    input:
+        spatlocs_pattern
+    output:
+        map_pattern
+    shell:
+        "python plot_sampling.py --intensity_in {input} --intensity_out {output}"
 
 rule labels:
     input:
-        metadata_files,
+        metadata_files
     output:
         labels_file
     shell:
         """
-        echo 'N,rep,N_final,n,npops,nsibs,nfullsibs' >> {output}
-        cat {input}  >> {output}
+        echo 'N,rep,N_final,n,group_size,npops,nsibs,nfullsibs' >> {output}
+        cat {input} >> {output}
         """
+
 rule random_labels:
     input:
-        random_metadata_files,
+        random_metadata_files
     output:
         random_labels_file
     shell:
         """
-        echo 'N,rep,N_final,n,npops,nsibs,nfullsibs' >> {output}
-        cat {input}  >> {output}
+        echo 'N,rep,N_final,n,group_size,npops,nsibs,nfullsibs' >> {output}
+        cat {input} >> {output}
         """
