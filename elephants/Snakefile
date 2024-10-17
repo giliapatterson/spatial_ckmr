@@ -1,19 +1,22 @@
 import numpy as np
 
 # Population sizes to simulate
-Ns = np.linspace(100, 1000, 51).astype(int)
+#Ns = np.linspace(100, 1000, 51).astype(int)
 #Ns = np.linspace(150, 250, 3).astype(int)
-Ns = Ns[Ns > 200][0:39]
+#Ns = Ns[Ns > 200][0:39]
+Ns = np.arange(100, 3200, step = 54).astype(int)
 
 # Number of times to run each simulation
 reps = np.arange(1, 51)
 
 # Sample sizes for each simulation
-ns = np.linspace(30, 500, 10).astype(int)
-ns = ns[ns > 70][[0,2,4,6,8]]
+#ns = np.linspace(30, 500, 10).astype(int)
+#ns = ns[ns > 70][[0,2,4,6,8]]
+ns = [82, 291, 500, 700, 1000]
 
 # Average group size
 group_size = np.array([8, 15])
+group_size = 15
 
 # Base directory
 dir = "/sietch_colab/gpatters/ckmr/elephants/"
